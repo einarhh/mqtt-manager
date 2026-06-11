@@ -19,9 +19,11 @@ dev: ## Run in hot-reload dev mode
 
 build: ## Build the production app bundle (version injected from git)
 	wails build -ldflags "$(LDFLAGS)"
+	@scripts/macicon.sh
 
 build-debug: ## Build with devtools enabled
 	wails build -debug -devtools -ldflags "$(LDFLAGS)"
+	@scripts/macicon.sh
 
 run: build ## Build then launch the app (macOS)
 	open build/bin/$(APP).app
