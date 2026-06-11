@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { EventsOn } from "../wailsjs/runtime/runtime";
+  import { onMount, onDestroy } from "svelte";
+  import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
   import { ingest, status, totalTopics, totalMessages } from "./lib/stores";
   import type { IncomingMessage, ConnStatus } from "./lib/stores";
   import ConnectionPanel from "./lib/ConnectionPanel.svelte";
@@ -17,8 +17,17 @@
   };
 
   onMount(() => {
+    // Clear any listeners left over from a previous mount (e.g. a dev hot-reload
+    // while the Go backend keeps running) so each batch is ingested exactly once.
+    EventsOff("mqtt:messages");
+    EventsOff("mqtt:status");
     EventsOn("mqtt:messages", (batch: IncomingMessage[]) => ingest(batch));
     EventsOn("mqtt:status", (s: ConnStatus) => status.set(s));
+  });
+
+  onDestroy(() => {
+    EventsOff("mqtt:messages");
+    EventsOff("mqtt:status");
   });
 </script>
 
