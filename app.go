@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"mqtt-manager/internal/mqtt"
@@ -31,6 +33,16 @@ func NewApp() *App {
 // Version returns the application version (injected at build time).
 func (a *App) Version() string {
 	return version
+}
+
+// showAbout displays a native About dialog with the version. It is wired to the
+// Help > About menu item.
+func (a *App) showAbout(_ *menu.CallbackData) {
+	wruntime.MessageDialog(a.ctx, wruntime.MessageDialogOptions{
+		Type:    wruntime.InfoDialog,
+		Title:   "About MQTT Manager",
+		Message: fmt.Sprintf("MQTT Manager\nVersion %s\n\n© 2026 Einar Helseth", version),
+	})
 }
 
 // startup is called when the app starts. It wires up the MQTT client and the
