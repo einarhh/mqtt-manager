@@ -37,8 +37,29 @@ Requires Go, Node, and the Wails CLI
 (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`).
 
 ```sh
-wails dev      # hot-reload dev mode
-wails build    # production .app bundle in build/bin
+make dev       # hot-reload dev mode
+make build     # production .app bundle in build/bin (version injected from git)
+make help      # list all targets
+```
+
+The version is derived from `git describe` and injected via `-ldflags` into
+`main.version`, then shown in the app header.
+
+## Releasing
+
+Releases are driven by `scripts/release.sh` via the Makefile. Each release bumps
+the [semantic version](https://semver.org), generates a `CHANGELOG.md` section
+from the commits since the last tag, syncs `wails.json`, commits, and creates an
+annotated git tag.
+
+```sh
+make changelog          # preview unreleased changes since the last tag
+make release-patch      # x.y.Z
+make release-minor      # x.Y.0
+make release-major      # X.0.0
+make release V=1.2.3    # explicit version
+
+git push && git push --tags   # publish the release
 ```
 
 ## Verifying
