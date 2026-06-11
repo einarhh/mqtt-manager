@@ -25,6 +25,13 @@ build-debug: ## Build with devtools enabled
 	wails build -debug -devtools -ldflags "$(LDFLAGS)"
 	@scripts/macicon.sh
 
+dist: ## Build a universal macOS .app and zip it for sharing
+	wails build -platform darwin/universal -ldflags "$(LDFLAGS)"
+	@scripts/macicon.sh
+	@rm -f "build/bin/$(APP)-$(VERSION)-macos-universal.zip"
+	@ditto -c -k --keepParent "build/bin/$(APP).app" "build/bin/$(APP)-$(VERSION)-macos-universal.zip"
+	@echo "Wrote build/bin/$(APP)-$(VERSION)-macos-universal.zip"
+
 run: build ## Build then launch the app (macOS)
 	open build/bin/$(APP).app
 
