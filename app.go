@@ -28,6 +28,11 @@ func NewApp() *App {
 	return &App{}
 }
 
+// Version returns the application version (injected at build time).
+func (a *App) Version() string {
+	return version
+}
+
 // startup is called when the app starts. It wires up the MQTT client and the
 // profile store, forwarding message batches and status changes to the frontend.
 func (a *App) startup(ctx context.Context) {

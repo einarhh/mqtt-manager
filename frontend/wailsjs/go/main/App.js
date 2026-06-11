@@ -33,3 +33,7 @@ export function Subscribe(arg1, arg2) {
 export function Unsubscribe(arg1) {
   return window['go']['main']['App']['Unsubscribe'](arg1);
 }
+
+export function Version() {
+  return window['go']['main']['App']['Version']();
+}

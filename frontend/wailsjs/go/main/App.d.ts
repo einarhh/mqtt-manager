@@ -17,3 +17,5 @@ export function SaveProfile(arg1:profiles.ConnectionProfile):Promise<profiles.Co
 export function Subscribe(arg1:string,arg2:number):Promise<void>;
 
 export function Unsubscribe(arg1:string):Promise<void>;
+
+export function Version():Promise<string>;

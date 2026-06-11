@@ -11,6 +11,10 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// version is the application version. It defaults to "dev" and is overridden at
+// build time via -ldflags "-X main.version=...". See the Makefile.
+var version = "dev"
+
 func main() {
 	// Create an instance of the app structure
 	app := NewApp()

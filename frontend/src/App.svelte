@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
+  import { Version } from "../wailsjs/go/main/App";
   import { ingest, status, totalTopics, totalMessages } from "./lib/stores";
   import type { IncomingMessage, ConnStatus } from "./lib/stores";
+
+  let appVersion = "";
   import ConnectionPanel from "./lib/ConnectionPanel.svelte";
   import TopicTree from "./lib/TopicTree.svelte";
   import TopicDetail from "./lib/TopicDetail.svelte";
@@ -23,6 +26,7 @@
     EventsOff("mqtt:status");
     EventsOn("mqtt:messages", (batch: IncomingMessage[]) => ingest(batch));
     EventsOn("mqtt:status", (s: ConnStatus) => status.set(s));
+    Version().then((v) => (appVersion = v));
   });
 
   onDestroy(() => {
@@ -36,6 +40,7 @@
     <div class="brand">
       <span class="logo">▤</span>
       <span class="app-name">MQTT Manager</span>
+      {#if appVersion}<span class="version">{appVersion}</span>{/if}
     </div>
     <div class="status">
       <span class="dot {$status.status}"></span>
@@ -86,6 +91,14 @@
   .app-name {
     font-weight: 700;
     letter-spacing: 0.02em;
+  }
+  .version {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
   }
   .status {
     display: flex;
