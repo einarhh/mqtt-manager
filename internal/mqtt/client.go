@@ -41,6 +41,7 @@ type Client struct {
 	client   paho.Client
 	batcher  *batcher
 	onStatus StatusFunc
+	subs     map[string]byte // active subscriptions (filter -> qos), for resubscribe
 }
 
 // NewClient builds a client. onMessages receives throttled batches of incoming
@@ -49,6 +50,7 @@ func NewClient(onMessages func([]Message), onStatus StatusFunc) *Client {
 	return &Client{
 		batcher:  newBatcher(100*time.Millisecond, onMessages),
 		onStatus: onStatus,
+		subs:     map[string]byte{},
 	}
 }
 
@@ -87,6 +89,10 @@ func (c *Client) Connect(p profiles.ConnectionProfile) error {
 	})
 	opts.SetOnConnectHandler(func(_ paho.Client) {
 		c.status(StatusConnected, p.BrokerURL())
+		// Fires on the initial connect AND every auto-reconnect. Because we use a
+		// clean session, the broker keeps no subscription state across a reconnect
+		// (e.g. after the machine sleeps), so we must restore them ourselves.
+		go c.resubscribe()
 	})
 
 	c.status(StatusConnecting, p.BrokerURL())
@@ -120,6 +126,11 @@ func (c *Client) Disconnect() {
 	if client != nil {
 		c.status(StatusDisconnected, "")
 	}
+
+	// Explicit disconnect clears the subscription set so a later Connect starts clean.
+	c.mu.Lock()
+	c.subs = map[string]byte{}
+	c.mu.Unlock()
 }
 
 func (c *Client) Subscribe(filter string, qos byte) error {
@@ -129,7 +140,14 @@ func (c *Client) Subscribe(filter string, qos byte) error {
 	}
 	token := client.Subscribe(filter, qos, nil)
 	token.Wait()
-	return token.Error()
+	if err := token.Error(); err != nil {
+		return err
+	}
+	// Remember it so we can restore the subscription after an auto-reconnect.
+	c.mu.Lock()
+	c.subs[filter] = qos
+	c.mu.Unlock()
+	return nil
 }
 
 func (c *Client) Unsubscribe(filter string) error {
@@ -139,7 +157,36 @@ func (c *Client) Unsubscribe(filter string) error {
 	}
 	token := client.Unsubscribe(filter)
 	token.Wait()
-	return token.Error()
+	if err := token.Error(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	delete(c.subs, filter)
+	c.mu.Unlock()
+	return nil
+}
+
+// resubscribe re-establishes all tracked subscriptions on the current client.
+// Called from the OnConnect handler after every (re)connect.
+func (c *Client) resubscribe() {
+	c.mu.Lock()
+	client := c.client
+	subs := make(map[string]byte, len(c.subs))
+	for f, q := range c.subs {
+		subs[f] = q
+	}
+	c.mu.Unlock()
+
+	if client == nil || len(subs) == 0 {
+		return
+	}
+	for filter, qos := range subs {
+		token := client.Subscribe(filter, qos, nil)
+		token.Wait()
+		if err := token.Error(); err != nil {
+			c.status(StatusError, fmt.Sprintf("resubscribe %s: %s", filter, err))
+		}
+	}
 }
 
 func (c *Client) Publish(topic string, payload []byte, qos byte, retain bool) error {
