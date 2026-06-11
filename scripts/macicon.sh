@@ -30,5 +30,9 @@ cp "$SRC" "$set/icon_512x512@2x.png" # 1024x1024
 
 iconutil -c icns -o "$APP/Contents/Resources/iconfile.icns" "$set"
 rm -rf "$work"
+
+# Replacing a resource invalidates the signature Wails applied, so re-seal the
+# bundle (ad-hoc). Without this the bundle fails Gatekeeper with a broken seal.
+codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 touch "$APP"
-echo "macicon: wrote complete multi-resolution icns to the bundle."
+echo "macicon: wrote complete multi-resolution icns and re-signed the bundle."
