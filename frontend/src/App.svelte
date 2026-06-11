@@ -6,6 +6,7 @@
   import type { IncomingMessage, ConnStatus } from "./lib/stores";
 
   let appVersion = "";
+  import Logo from "./lib/Logo.svelte";
   import ConnectionPanel from "./lib/ConnectionPanel.svelte";
   import TopicTree from "./lib/TopicTree.svelte";
   import TopicDetail from "./lib/TopicDetail.svelte";
@@ -38,7 +39,7 @@
 <div class="app">
   <header>
     <div class="brand">
-      <span class="logo">▤</span>
+      <Logo size={26} />
       <span class="app-name">MQTT Manager</span>
       {#if appVersion}<span class="version">{appVersion}</span>{/if}
     </div>
@@ -83,10 +84,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-  .logo {
-    color: var(--accent);
-    font-size: 18px;
   }
   .app-name {
     font-weight: 700;
