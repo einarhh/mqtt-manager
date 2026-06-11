@@ -165,10 +165,8 @@
     {/if}
 
     <label>Client ID<input bind:value={draft.clientId} /></label>
-    <div class="two">
-      <label class="grow">Username<input bind:value={draft.username} /></label>
-      <label class="grow">Password<input type="password" bind:value={draft.password} /></label>
-    </div>
+    <label>Username<input bind:value={draft.username} /></label>
+    <label>Password<input type="password" bind:value={draft.password} /></label>
 
     <div class="two">
       <label class="grow">Subscribe<input bind:value={draft.subFilter} /></label>

@@ -8,7 +8,7 @@
   export let depth = 0;
   export let filter = "";
 
-  let expanded = depth < 2;
+  let expanded = false;
 
   // Case-insensitive subtree match: a node is visible if it or any descendant
   // matches the filter text.
@@ -36,6 +36,11 @@
   function select() {
     selectedPath.set(node.path);
   }
+  // Clicking anywhere on the row selects the topic and toggles its children.
+  function onRowClick() {
+    select();
+    toggle();
+  }
 </script>
 
 {#if visible}
@@ -44,13 +49,9 @@
       class="row"
       class:selected
       style="padding-left: {depth * 14 + 6}px"
-      on:click={select}
+      on:click={onRowClick}
     >
-      <span
-        class="twisty"
-        class:hidden={node.children.size === 0}
-        on:click|stopPropagation={toggle}
-      >
+      <span class="twisty" class:hidden={node.children.size === 0}>
         {expanded || lowerFilter ? "▾" : "▸"}
       </span>
       <span class="name">{node.name || "/"}</span>
@@ -90,11 +91,12 @@
     background: var(--accent-soft);
   }
   .twisty {
-    width: 14px;
-    flex: 0 0 14px;
+    width: 16px;
+    flex: 0 0 16px;
     text-align: center;
     color: var(--text-dim);
-    font-size: 10px;
+    font-size: 14px;
+    line-height: 1;
   }
   .twisty.hidden {
     visibility: hidden;
