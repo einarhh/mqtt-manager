@@ -6,6 +6,13 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [1.1.0] - 2026-06-11
+
+- Use the app icon as the header logo
+- Add native menu with an About item showing the version
+- Generate complete multi-resolution macOS icns after build
+- Document the Make build and release workflow in the README
+
 ## [1.0.0] - 2026-06-11
 
 - Add semantic versioning and Make-driven release tooling
