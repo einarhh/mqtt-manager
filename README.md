@@ -4,6 +4,10 @@ A desktop MQTT client — a live topic tree, per-topic value inspection with his
 publishing, and saved broker connections. Built with [Wails](https://wails.io) (Go backend +
 Svelte/TypeScript frontend).
 
+![MQTT Manager](docs/screenshot.png)
+
+> The screenshot uses demo data, not real brokers.
+
 ## Features (v1)
 
 - **Connections** — save multiple broker profiles (host/port, TLS, auth, client ID, default
