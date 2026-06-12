@@ -6,6 +6,10 @@ export function Connect(arg1) {
   return window['go']['main']['App']['Connect'](arg1);
 }
 
+export function DeletePlugin(arg1) {
+  return window['go']['main']['App']['DeletePlugin'](arg1);
+}
+
 export function DeleteProfile(arg1) {
   return window['go']['main']['App']['DeleteProfile'](arg1);
 }
@@ -14,12 +18,28 @@ export function Disconnect() {
   return window['go']['main']['App']['Disconnect']();
 }
 
+export function ExportPlugin(arg1) {
+  return window['go']['main']['App']['ExportPlugin'](arg1);
+}
+
+export function ImportPlugin() {
+  return window['go']['main']['App']['ImportPlugin']();
+}
+
+export function ListPlugins() {
+  return window['go']['main']['App']['ListPlugins']();
+}
+
 export function ListProfiles() {
   return window['go']['main']['App']['ListProfiles']();
 }
 
 export function Publish(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['Publish'](arg1, arg2, arg3, arg4);
+}
+
+export function SavePlugin(arg1) {
+  return window['go']['main']['App']['SavePlugin'](arg1);
 }
 
 export function SaveProfile(arg1) {

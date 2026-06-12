@@ -4,13 +4,16 @@
   import { Version } from "../wailsjs/go/main/App";
   import { ingest, status, totalTopics, totalMessages } from "./lib/stores";
   import type { IncomingMessage, ConnStatus } from "./lib/stores";
+  import { reload as reloadPlugins } from "./lib/plugins";
 
   let appVersion = "";
+  let showPlugins = false;
   import Logo from "./lib/Logo.svelte";
   import ConnectionPanel from "./lib/ConnectionPanel.svelte";
   import TopicTree from "./lib/TopicTree.svelte";
   import TopicDetail from "./lib/TopicDetail.svelte";
   import PublishPanel from "./lib/PublishPanel.svelte";
+  import PluginManager from "./lib/PluginManager.svelte";
 
   const STATUS_LABELS: Record<string, string> = {
     disconnected: "Disconnected",
@@ -28,6 +31,7 @@
     EventsOn("mqtt:messages", (batch: IncomingMessage[]) => ingest(batch));
     EventsOn("mqtt:status", (s: ConnStatus) => status.set(s));
     Version().then((v) => (appVersion = v));
+    reloadPlugins();
   });
 
   onDestroy(() => {
@@ -51,7 +55,12 @@
     <div class="counters">
       {$totalTopics} topics · {$totalMessages} messages
     </div>
+    <button class="plugins-btn" on:click={() => (showPlugins = true)}>⚙ Plugins</button>
   </header>
+
+  {#if showPlugins}
+    <PluginManager on:close={() => (showPlugins = false)} />
+  {/if}
 
   <main>
     <aside class="left"><ConnectionPanel /></aside>
@@ -128,6 +137,18 @@
     margin-left: auto;
     font-size: 12px;
     color: var(--text-dim);
+  }
+  .plugins-btn {
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .plugins-btn:hover {
+    color: var(--text);
   }
   main {
     flex: 1;

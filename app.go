@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"mqtt-manager/internal/mqtt"
+	"mqtt-manager/internal/plugins"
 	"mqtt-manager/internal/profiles"
 )
 
@@ -20,9 +24,10 @@ const (
 
 // App is the Wails application backend bound to the frontend.
 type App struct {
-	ctx    context.Context
-	client *mqtt.Client
-	store  *profiles.Store
+	ctx     context.Context
+	client  *mqtt.Client
+	store   *profiles.Store
+	plugins *plugins.Store
 }
 
 // NewApp creates a new App application struct.
@@ -68,6 +73,13 @@ func (a *App) startup(ctx context.Context) {
 		return
 	}
 	a.store = store
+
+	pluginStore, err := plugins.NewStore()
+	if err != nil {
+		wruntime.LogError(a.ctx, "plugin store init: "+err.Error())
+		return
+	}
+	a.plugins = pluginStore
 }
 
 // shutdown tears down the MQTT connection cleanly.
@@ -127,4 +139,95 @@ func (a *App) SaveProfile(p profiles.ConnectionProfile) (profiles.ConnectionProf
 // DeleteProfile removes a profile by ID.
 func (a *App) DeleteProfile(id string) error {
 	return a.store.Delete(id)
+}
+
+// --- Plugins --------------------------------------------------------------
+
+// ListPlugins returns all saved decoder plugins.
+func (a *App) ListPlugins() ([]plugins.Plugin, error) {
+	if a.plugins == nil {
+		return []plugins.Plugin{}, nil
+	}
+	return a.plugins.List()
+}
+
+// SavePlugin inserts or updates a decoder plugin and returns the stored value.
+func (a *App) SavePlugin(p plugins.Plugin) (plugins.Plugin, error) {
+	return a.plugins.Save(p)
+}
+
+// DeletePlugin removes a decoder plugin by ID.
+func (a *App) DeletePlugin(id string) error {
+	return a.plugins.Delete(id)
+}
+
+var jsFilter = []wruntime.FileFilter{{DisplayName: "JavaScript (*.js)", Pattern: "*.js"}}
+
+// ExportPlugin writes a plugin's source to a user-chosen .js file. A cancelled
+// dialog is a no-op.
+func (a *App) ExportPlugin(id string) error {
+	if a.plugins == nil {
+		return nil
+	}
+	list, err := a.plugins.List()
+	if err != nil {
+		return err
+	}
+	var p *plugins.Plugin
+	for i := range list {
+		if list[i].ID == id {
+			p = &list[i]
+			break
+		}
+	}
+	if p == nil {
+		return fmt.Errorf("plugin %s not found", id)
+	}
+	name := p.Filename
+	if name == "" {
+		name = "plugin.js"
+	}
+	path, err := wruntime.SaveFileDialog(a.ctx, wruntime.SaveDialogOptions{
+		Title:           "Export plugin",
+		DefaultFilename: name,
+		Filters:         jsFilter,
+	})
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return nil // cancelled
+	}
+	return os.WriteFile(path, []byte(p.Source), 0o644)
+}
+
+// ImportPlugin opens a .js file and saves its contents as a new plugin, which
+// it returns. A cancelled dialog returns a zero-value plugin (empty ID).
+func (a *App) ImportPlugin() (plugins.Plugin, error) {
+	if a.plugins == nil {
+		return plugins.Plugin{}, nil
+	}
+	path, err := wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
+		Title:   "Import plugin",
+		Filters: jsFilter,
+	})
+	if err != nil {
+		return plugins.Plugin{}, err
+	}
+	if path == "" {
+		return plugins.Plugin{}, nil // cancelled
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return plugins.Plugin{}, fmt.Errorf("reading %s: %w", filepath.Base(path), err)
+	}
+	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	if name == "" {
+		name = "imported"
+	}
+	return a.plugins.Save(plugins.Plugin{
+		Name:    name,
+		Enabled: true,
+		Source:  string(data),
+	})
 }

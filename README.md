@@ -19,9 +19,53 @@ Svelte/TypeScript frontend).
 - **Topic detail** — latest payload (JSON pretty-printed when applicable), metadata
   (QoS / retained / timestamp / count), and a recent value history.
 - **Publish** — send messages with topic, payload, QoS, and retain flag.
+- **Decoder plugins** — custom JavaScript decoders that turn project-specific binary/encoded
+  payloads into a readable field view in the detail panel. See [Plugins](#plugins).
 
 Incoming messages are throttled on the Go side (batched every 100 ms) so a busy broker can't
 flood the UI.
+
+## Plugins
+
+A plugin is a small JavaScript module that decodes matching MQTT payloads for display. When a
+selected topic matches an enabled plugin, the detail panel renders the plugin's structured
+output (with a toggle back to the raw view).
+
+Plugins are managed from the **⚙ Plugins** button in the header, and stored as plain `.js`
+files in `<user-config-dir>/mqtt-manager/plugins/` (an `index.json` tracks name/enabled/order).
+Drop a `.js` file into that folder and it appears in the manager (disabled by default), so
+plugins are shareable by copying a file. The manager also has **import** (pick a `.js` file to
+add as a new plugin) and **export** (write the selected plugin's `.js` anywhere) for sharing
+without touching the config folder.
+
+### Authoring
+
+A plugin file is plain JavaScript: declare any helpers first, then a single trailing
+`export default`. No other `import`/`export` is supported (the body is evaluated with
+`new Function`, and `export default` is rewritten to `return`).
+
+```js
+export default {
+  name: "My decoder",
+  topic: "my/topic/+",            // MQTT-style filter (+ and # wildcards)
+  // Optional predicate — return false to let another plugin handle the message.
+  match(ctx) { return ctx.bytes.length > 2; },
+  decode(ctx) {
+    // ctx = { topic, bytes: Uint8Array, hex: string, text: string, ts: number|null }
+    return {
+      summary: "one-line headline",                 // optional
+      fields: [{ label: "rssi", value: -73, hint: "dBm" }], // label/value table
+      json: { any: "object" },                       // optional pretty-printed JSON block
+      text: "raw block",                             // optional monospace block
+      // error: "..."                                // optional; shows an error banner
+    };
+  },
+};
+```
+
+`decode()` must return a plain (JSON-serialisable) object. Plugins run in a Web Worker off the
+UI thread; a plugin that throws shows an error banner, and one that hangs is watchdog-terminated
+and disabled for the session.
 
 ## Architecture
 
@@ -29,7 +73,9 @@ flood the UI.
 main.go / app.go              Wails bootstrap + JS-bound methods
 internal/mqtt/                paho 3.1.1 client wrapper + message batcher (Connector interface)
 internal/profiles/            connection-profile storage + TLS config builder
+internal/plugins/             decoder-plugin file storage (source served to the frontend)
 frontend/src/                 Svelte UI (ConnectionPanel, TopicTree, TopicDetail, PublishPanel)
+frontend/src/lib/plugins.ts   plugin runtime + decoderWorker.ts (sandboxed decode worker)
 ```
 
 The MQTT layer sits behind a `Connector` interface so an MQTT 5 (autopaho) backend can be

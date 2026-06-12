@@ -4,6 +4,7 @@ import { b64ToText } from "./util";
 export interface HistoryEntry {
   ts: number;
   text: string;
+  raw: string; // base64 payload, kept so decoder plugins can read raw bytes
   qos: number;
   retained: boolean;
 }
@@ -15,6 +16,7 @@ export interface TreeNode {
   path: string; // full topic up to here, e.g. "home/room/temp"
   children: Map<string, TreeNode>;
   text: string | null; // last decoded payload, or null if no value yet
+  raw: string | null; // last raw payload (base64), or null if no value yet
   qos: number;
   retained: boolean;
   ts: number | null; // last update (unix millis)
@@ -43,6 +45,7 @@ function makeNode(name: string, path: string): TreeNode {
     path,
     children: new Map(),
     text: null,
+    raw: null,
     qos: 0,
     retained: false,
     ts: null,
@@ -80,11 +83,12 @@ export function ingest(batch: IncomingMessage[]): void {
     const wasEmpty = node.ts === null;
     const text = b64ToText(m.payload);
     node.text = text;
+    node.raw = m.payload;
     node.qos = m.qos;
     node.retained = m.retained;
     node.ts = m.ts;
     node.count++;
-    node.history.push({ ts: m.ts, text, qos: m.qos, retained: m.retained });
+    node.history.push({ ts: m.ts, text, raw: m.payload, qos: m.qos, retained: m.retained });
     if (node.history.length > HISTORY_LIMIT) node.history.shift();
     if (wasEmpty) topicCount++;
     msgCount++;

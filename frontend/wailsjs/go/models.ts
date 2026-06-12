@@ -1,3 +1,30 @@
+export namespace plugins {
+	
+	export class Plugin {
+	    id: string;
+	    name: string;
+	    filename: string;
+	    enabled: boolean;
+	    order: number;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Plugin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.filename = source["filename"];
+	        this.enabled = source["enabled"];
+	        this.order = source["order"];
+	        this.source = source["source"];
+	    }
+	}
+
+}
+
 export namespace profiles {
 	
 	export class ConnectionProfile {
