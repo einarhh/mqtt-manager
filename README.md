@@ -6,7 +6,7 @@ Svelte/TypeScript frontend).
 
 ![MQTT Manager](docs/screenshot.png)
 
-> The screenshot uses demo data, not real brokers.
+> Showing a raw binary payload decoded into fields by a custom plugin. Demo data — not real brokers.
 
 ## Features (v1)
 
