@@ -62,6 +62,11 @@ make release V=1.2.3    # explicit version
 git push && git push --tags   # publish the release
 ```
 
+`make dist` produces a universal (Apple Silicon + Intel) `.app` zipped for
+sharing. Builds are **not** Apple-notarized, so on first launch macOS shows a
+Gatekeeper prompt — open it via right-click → **Open**, or run
+`xattr -dr com.apple.quarantine mqtt-manager.app`.
+
 ## Verifying
 
 Point a profile at a broker (e.g. a local `eclipse-mosquitto` container or
@@ -73,3 +78,7 @@ appear in the tree and detail panel.
 - v1 stores passwords in plaintext on disk — OS keychain storage is planned.
 - Roadmap: MQTT 5, numeric charts/sparklines, retained-message deletion, WebSocket transport,
   message search/export.
+
+## License
+
+[MIT](LICENSE) © 2026 Einar Helseth
