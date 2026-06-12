@@ -6,6 +6,14 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [1.2.0] - 2026-06-12
+
+- Support plugins
+- Add UI screenshot to the README
+- Add MIT license and open-source prep
+- Re-sign the bundle after swapping the icns
+- Add make dist target for a shareable universal macOS build
+
 ## [1.1.0] - 2026-06-11
 
 - Use the app icon as the header logo
