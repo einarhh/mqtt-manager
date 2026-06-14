@@ -6,7 +6,7 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
-## [Unreleased]
+## [1.3.0] - 2026-06-14
 
 - Connect to multiple brokers simultaneously and switch between them by selecting a connection in the list
 - Subscribe to multiple topics per connection, each with its own QoS
