@@ -6,6 +6,10 @@ export function Connect(arg1) {
   return window['go']['main']['App']['Connect'](arg1);
 }
 
+export function Connections() {
+  return window['go']['main']['App']['Connections']();
+}
+
 export function DeletePlugin(arg1) {
   return window['go']['main']['App']['DeletePlugin'](arg1);
 }
@@ -14,8 +18,8 @@ export function DeleteProfile(arg1) {
   return window['go']['main']['App']['DeleteProfile'](arg1);
 }
 
-export function Disconnect() {
-  return window['go']['main']['App']['Disconnect']();
+export function Disconnect(arg1) {
+  return window['go']['main']['App']['Disconnect'](arg1);
 }
 
 export function ExportPlugin(arg1) {
@@ -34,8 +38,12 @@ export function ListProfiles() {
   return window['go']['main']['App']['ListProfiles']();
 }
 
-export function Publish(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['Publish'](arg1, arg2, arg3, arg4);
+export function Publish(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['Publish'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function RemoveConnection(arg1) {
+  return window['go']['main']['App']['RemoveConnection'](arg1);
 }
 
 export function SavePlugin(arg1) {
@@ -46,16 +54,12 @@ export function SaveProfile(arg1) {
   return window['go']['main']['App']['SaveProfile'](arg1);
 }
 
-export function Status() {
-  return window['go']['main']['App']['Status']();
+export function Subscribe(arg1, arg2, arg3) {
+  return window['go']['main']['App']['Subscribe'](arg1, arg2, arg3);
 }
 
-export function Subscribe(arg1, arg2) {
-  return window['go']['main']['App']['Subscribe'](arg1, arg2);
-}
-
-export function Unsubscribe(arg1) {
-  return window['go']['main']['App']['Unsubscribe'](arg1);
+export function Unsubscribe(arg1, arg2) {
+  return window['go']['main']['App']['Unsubscribe'](arg1, arg2);
 }
 
 export function Version() {

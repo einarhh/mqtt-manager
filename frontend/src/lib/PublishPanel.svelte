@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { status, selectedPath } from "./stores";
+  import { status, selectedPath, activeId } from "./stores";
   import { textToB64 } from "./util";
   import { Publish } from "../../wailsjs/go/main/App";
 
@@ -23,8 +23,12 @@
       error = "Topic is required";
       return;
     }
+    if (!$activeId) {
+      error = "No active connection";
+      return;
+    }
     try {
-      await Publish(topic, textToB64(payload), Number(qos), retain);
+      await Publish($activeId, topic, textToB64(payload), Number(qos), retain);
       flash = true;
       setTimeout(() => (flash = false), 500);
     } catch (e) {

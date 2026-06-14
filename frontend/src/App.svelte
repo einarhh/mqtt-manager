@@ -1,10 +1,21 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
-  import { Version, Status } from "../wailsjs/go/main/App";
-  import { ingest, status, totalTopics, totalMessages } from "./lib/stores";
-  import type { IncomingMessage, ConnStatus } from "./lib/stores";
+  import { Version, Connections, ListProfiles } from "../wailsjs/go/main/App";
+  import { ingest, setStatus, addConnection, status, totalTopics, totalMessages } from "./lib/stores";
+  import type { IncomingMessage } from "./lib/stores";
   import { reload as reloadPlugins } from "./lib/plugins";
+
+  // Tagged event payloads emitted by the Go backend (ConnMessages / ConnState).
+  interface MessagesEvent {
+    id: string;
+    messages: IncomingMessage[];
+  }
+  interface StatusEvent {
+    id: string;
+    status: string;
+    detail: string;
+  }
 
   let appVersion = "";
   let showPlugins = false;
@@ -39,12 +50,20 @@
     // while the Go backend keeps running) so each batch is ingested exactly once.
     EventsOff("mqtt:messages");
     EventsOff("mqtt:status");
-    EventsOn("mqtt:messages", (batch: IncomingMessage[]) => ingest(batch));
-    EventsOn("mqtt:status", (s: ConnStatus) => status.set(s));
+    EventsOn("mqtt:messages", (p: MessagesEvent) => ingest(p.id, p.messages));
+    EventsOn("mqtt:status", (p: StatusEvent) =>
+      setStatus(p.id, { status: p.status, detail: p.detail }),
+    );
     Version().then((v) => (appVersion = v));
-    // Status is only pushed on transitions, so recover the current state on load
-    // (a reload would otherwise show a stale "disconnected" while messages flow).
-    Status().then((s) => status.set(s as ConnStatus));
+    // Status is only pushed on transitions, so rebuild the live connections on load
+    // (a reload would otherwise lose the connection list while messages still flow).
+    Promise.all([Connections(), ListProfiles()]).then(([live, profs]) => {
+      const names = new Map(profs.map((p) => [p.id, p.name]));
+      for (const c of live) {
+        addConnection(c.id, names.get(c.id) ?? c.id);
+        setStatus(c.id, { status: c.status, detail: c.detail });
+      }
+    });
     reloadPlugins();
   });
 

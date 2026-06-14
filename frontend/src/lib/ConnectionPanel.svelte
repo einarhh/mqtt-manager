@@ -1,10 +1,18 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { status, clearTree } from "./stores";
+  import {
+    connections,
+    activeId,
+    addConnection,
+    removeConnection,
+    setActive,
+    clearConnection,
+  } from "./stores";
   import {
     Connect,
     Disconnect,
     Subscribe,
+    RemoveConnection,
     ListProfiles,
     SaveProfile,
     DeleteProfile,
@@ -48,9 +56,17 @@
   // Disconnect control remains reachable.
   let editing = false;
 
-  $: connected = $status.status === "connected";
-  $: busy = $status.status === "connecting";
-  $: showForm = editing || connected || busy;
+  // Statuses that count as "has a live connection" (Connect → Disconnect toggle).
+  const LIVE = new Set(["connected", "connecting", "reconnecting"]);
+
+  // Look up live connection state by profile id (drives the per-row status dot
+  // and Connect/Disconnect/Remove controls).
+  $: connMap = new Map($connections.map((c) => [c.id, c] as const));
+  $: draftStatus = (draft.id ? connMap.get(draft.id)?.status.status : undefined) ?? "disconnected";
+  $: draftLive = LIVE.has(draftStatus);
+  $: busy = draftStatus === "connecting";
+  // The editor is shown only via New / Edit; viewing a connection hides it.
+  $: showForm = editing;
 
   function randomClientId(): string {
     return "mqtt-manager-" + Math.random().toString(16).slice(2, 8);
@@ -140,6 +156,10 @@
   async function remove() {
     if (!draft.id) return;
     try {
+      if (connMap.has(draft.id)) {
+        await RemoveConnection(draft.id);
+        removeConnection(draft.id);
+      }
       await DeleteProfile(draft.id);
       draft = blank();
       editing = false;
@@ -149,17 +169,28 @@
     }
   }
 
-  async function connect() {
+  // Open (or reopen) a connection for a profile. Unsaved drafts are saved first so
+  // they get a stable id, which doubles as the connection id.
+  async function connectProfile(p: Profile) {
     error = "";
     try {
-      clearTree();
-      await Connect(asProfile(draft));
-      const subs = draft.subscriptions.filter((s) => s.filter.trim() !== "");
+      let prof = normalize({ ...p });
+      if (!prof.id) {
+        prof = normalize((await SaveProfile(asProfile(prof))) as Profile);
+        if (!draft.id) draft = prof; // reflect the new id back into the editor
+        await loadProfiles();
+      }
+      const id = prof.id;
+      addConnection(id, prof.name);
+      clearConnection(id); // reset any data captured in a previous session
+      setActive(id);
+      await Connect(asProfile(prof));
+      const subs = prof.subscriptions.filter((s) => s.filter.trim() !== "");
       if (subs.length === 0) {
-        await Subscribe("#", 0);
+        await Subscribe(id, "#", 0);
       } else {
         for (const s of subs) {
-          await Subscribe(s.filter.trim(), Number(s.qos));
+          await Subscribe(id, s.filter.trim(), Number(s.qos));
         }
       }
     } catch (e) {
@@ -167,12 +198,29 @@
     }
   }
 
-  async function disconnect() {
+  async function disconnectId(id: string) {
     try {
-      await Disconnect();
+      await Disconnect(id);
     } catch (e) {
       error = String(e);
     }
+  }
+
+  // Forget a disconnected connection entirely (discards its captured tree).
+  async function removeId(id: string) {
+    try {
+      await RemoveConnection(id);
+      removeConnection(id);
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  // Clicking a row views its connection (if any) and closes the editor. New/Edit
+  // are the only ways to open the editor.
+  function selectRow(p: Profile) {
+    editing = false;
+    if (connMap.has(p.id)) setActive(p.id);
   }
 
   onMount(loadProfiles);
@@ -192,9 +240,49 @@
     {:else}
       <ul>
         {#each profiles as p (p.id)}
-          <li class:active={p.id === draft.id} on:click={() => edit(p)}>
-            <span class="pname">{p.name}</span>
-            <span class="paddr">{p.host}:{p.port}</span>
+          {@const st = connMap.get(p.id)?.status.status ?? "none"}
+          {@const live = LIVE.has(st)}
+          <li class:active={p.id === $activeId} on:click={() => selectRow(p)}>
+            <span class="dot {st}" title={st}></span>
+            <div class="pinfo">
+              <span class="pname">{p.name}</span>
+              <span class="paddr">{p.host}:{p.port}</span>
+            </div>
+            <div class="prow-actions">
+              {#if live}
+                <button
+                  class="icon-btn act"
+                  title="Disconnect"
+                  on:click|stopPropagation={() => disconnectId(p.id)}
+                >
+                  <Icon name="power" size={14} />
+                </button>
+              {:else}
+                <button
+                  class="icon-btn act"
+                  title="Connect"
+                  on:click|stopPropagation={() => connectProfile(p)}
+                >
+                  <Icon name="power" size={14} />
+                </button>
+                {#if connMap.has(p.id)}
+                  <button
+                    class="icon-btn act"
+                    title="Remove (discard captured data)"
+                    on:click|stopPropagation={() => removeId(p.id)}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                {/if}
+              {/if}
+              <button
+                class="icon-btn act"
+                title="Edit"
+                on:click|stopPropagation={() => edit(p)}
+              >
+                <Icon name="edit" size={14} />
+              </button>
+            </div>
           </li>
         {/each}
       </ul>
@@ -205,11 +293,9 @@
   <div class="form">
     <div class="form-head">
       <span class="title">{draft.id ? "Edit connection" : "New connection"}</span>
-      {#if !connected && !busy}
-        <button class="icon-btn" title="Close" on:click={cancel}>
-          <Icon name="close" size={14} />
-        </button>
-      {/if}
+      <button class="icon-btn" title="Close" on:click={cancel}>
+        <Icon name="close" size={14} />
+      </button>
     </div>
     <label>Name<input bind:value={draft.name} /></label>
     <div class="two">
@@ -270,12 +356,12 @@
     <div class="actions">
       <button class="ghost" on:click={save}>Save</button>
       <button class="ghost" on:click={remove} disabled={!draft.id}>Delete</button>
-      {#if connected}
-        <button class="danger" on:click={disconnect}>Disconnect</button>
-      {:else}
-        <button class="primary" on:click={connect} disabled={busy}>
-          {busy ? "Connecting…" : "Connect"}
+      {#if draftLive}
+        <button class="danger" on:click={() => disconnectId(draft.id)}>
+          {busy ? "Connecting…" : "Disconnect"}
         </button>
+      {:else}
+        <button class="primary" on:click={() => connectProfile(draft)}>Connect</button>
       {/if}
     </div>
 
@@ -314,7 +400,8 @@
   }
   li {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     padding: 6px 8px;
     border-radius: 6px;
     cursor: pointer;
@@ -325,9 +412,50 @@
   li.active {
     background: var(--accent-soft);
   }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: var(--text-dim);
+  }
+  .dot.connected {
+    background: var(--ok);
+  }
+  .dot.connecting,
+  .dot.reconnecting {
+    background: var(--warn);
+  }
+  .dot.error {
+    background: var(--err);
+  }
+  .pinfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  .prow-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    opacity: 0;
+  }
+  li:hover .prow-actions,
+  li.active .prow-actions {
+    opacity: 1;
+  }
+  /* Row-action buttons are neutral on hover (the shared .icon-btn turns red,
+     which only suits the destructive subscription-remove button). */
+  .prow-actions .icon-btn.act:hover {
+    color: var(--text);
+  }
   .pname {
     font-weight: 600;
     font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .paddr {
     font-size: 12px;

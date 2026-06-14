@@ -1,3 +1,24 @@
+export namespace main {
+	
+	export class ConnState {
+	    id: string;
+	    status: string;
+	    detail: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.status = source["status"];
+	        this.detail = source["detail"];
+	    }
+	}
+
+}
+
 export namespace plugins {
 	
 	export class Plugin {

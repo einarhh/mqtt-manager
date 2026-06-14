@@ -8,6 +8,7 @@ Semantic Versioning (https://semver.org).
 
 ## [Unreleased]
 
+- Connect to multiple brokers simultaneously and switch between them by selecting a connection in the list
 - Subscribe to multiple topics per connection, each with its own QoS
 - Collapse the connection panel to the saved list, opening the editor only for New or edit
 - Add a toggle to order topics alphabetically or by received order

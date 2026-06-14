@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -16,23 +17,39 @@ import (
 	"mqtt-manager/internal/profiles"
 )
 
-// Wails event names emitted to the frontend.
+// Wails event names emitted to the frontend. Payloads are tagged with the
+// connection ID so the frontend can route them to the right connection.
 const (
 	eventMessages = "mqtt:messages"
 	eventStatus   = "mqtt:status"
 )
 
+// ConnMessages is a batch of received messages tagged with its connection ID.
+type ConnMessages struct {
+	ID       string         `json:"id"`
+	Messages []mqtt.Message `json:"messages"`
+}
+
+// ConnState is a connection's current status, tagged with its ID. It is both the
+// status-event payload and the element type returned by Connections().
+type ConnState struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+	Detail string `json:"detail"`
+}
+
 // App is the Wails application backend bound to the frontend.
 type App struct {
 	ctx     context.Context
-	client  *mqtt.Client
+	mu      sync.Mutex
+	clients map[string]*mqtt.Client // keyed by profile ID (one connection per profile)
 	store   *profiles.Store
 	plugins *plugins.Store
 }
 
 // NewApp creates a new App application struct.
 func NewApp() *App {
-	return &App{}
+	return &App{clients: map[string]*mqtt.Client{}}
 }
 
 // Version returns the application version (injected at build time).
@@ -50,22 +67,10 @@ func (a *App) showAbout(_ *menu.CallbackData) {
 	})
 }
 
-// startup is called when the app starts. It wires up the MQTT client and the
-// profile store, forwarding message batches and status changes to the frontend.
+// startup is called when the app starts. It wires up the profile and plugin
+// stores. MQTT clients are created lazily, one per profile, on Connect.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-
-	a.client = mqtt.NewClient(
-		func(batch []mqtt.Message) {
-			wruntime.EventsEmit(a.ctx, eventMessages, batch)
-		},
-		func(status, detail string) {
-			wruntime.EventsEmit(a.ctx, eventStatus, map[string]string{
-				"status": status,
-				"detail": detail,
-			})
-		},
-	)
 
 	store, err := profiles.NewStore()
 	if err != nil {
@@ -82,51 +87,116 @@ func (a *App) startup(ctx context.Context) {
 	a.plugins = pluginStore
 }
 
-// shutdown tears down the MQTT connection cleanly.
+// shutdown tears down all MQTT connections cleanly.
 func (a *App) shutdown(_ context.Context) {
-	if a.client != nil {
-		a.client.Close()
+	a.mu.Lock()
+	clients := make([]*mqtt.Client, 0, len(a.clients))
+	for _, c := range a.clients {
+		clients = append(clients, c)
+	}
+	a.clients = map[string]*mqtt.Client{}
+	a.mu.Unlock()
+
+	for _, c := range clients {
+		c.Close()
 	}
 }
 
 // --- Connection -----------------------------------------------------------
 
-// Connect opens a connection using the given profile.
+// client returns the client for a connection ID, or nil if none exists.
+func (a *App) client(id string) *mqtt.Client {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.clients[id]
+}
+
+// Connect opens a connection using the given profile. The connection ID is the
+// profile ID, so connecting an already-connected profile reuses its client.
 func (a *App) Connect(p profiles.ConnectionProfile) error {
-	return a.client.Connect(p)
+	id := p.ID
+	a.mu.Lock()
+	c := a.clients[id]
+	if c == nil {
+		// Callbacks close over the id so every emit is tagged with its connection.
+		c = mqtt.NewClient(
+			func(batch []mqtt.Message) {
+				wruntime.EventsEmit(a.ctx, eventMessages, ConnMessages{ID: id, Messages: batch})
+			},
+			func(status, detail string) {
+				wruntime.EventsEmit(a.ctx, eventStatus, ConnState{ID: id, Status: status, Detail: detail})
+			},
+		)
+		a.clients[id] = c
+	}
+	a.mu.Unlock()
+	return c.Connect(p)
 }
 
-// Disconnect closes the active connection.
-func (a *App) Disconnect() {
-	a.client.Disconnect()
+// Disconnect closes the connection's broker link but keeps its client (and the
+// frontend's captured tree) until RemoveConnection is called.
+func (a *App) Disconnect(id string) {
+	if c := a.client(id); c != nil {
+		c.Disconnect()
+	}
 }
 
-// Status returns the current connection status. The frontend calls this on load
-// to recover state after a reload, since status is otherwise only pushed on
-// transitions.
-func (a *App) Status() map[string]string {
-	status, detail := a.client.Status()
-	return map[string]string{"status": status, "detail": detail}
+// RemoveConnection disconnects, tears down the client (stopping its batcher), and
+// forgets it entirely.
+func (a *App) RemoveConnection(id string) {
+	a.mu.Lock()
+	c := a.clients[id]
+	delete(a.clients, id)
+	a.mu.Unlock()
+	if c != nil {
+		c.Close()
+	}
 }
 
-// Subscribe subscribes to a topic filter.
-func (a *App) Subscribe(filter string, qos int) error {
-	return a.client.Subscribe(filter, byte(qos))
+// Connections returns the current status of every live connection. The frontend
+// calls this on load to rebuild its connection list after a reload, since status
+// is otherwise only pushed on transitions.
+func (a *App) Connections() []ConnState {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]ConnState, 0, len(a.clients))
+	for id, c := range a.clients {
+		status, detail := c.Status()
+		out = append(out, ConnState{ID: id, Status: status, Detail: detail})
+	}
+	return out
 }
 
-// Unsubscribe removes a subscription.
-func (a *App) Unsubscribe(filter string) error {
-	return a.client.Unsubscribe(filter)
+// Subscribe subscribes a connection to a topic filter.
+func (a *App) Subscribe(id, filter string, qos int) error {
+	c := a.client(id)
+	if c == nil {
+		return fmt.Errorf("connection %s not found", id)
+	}
+	return c.Subscribe(filter, byte(qos))
 }
 
-// Publish publishes a message. payloadB64 is base64-encoded so binary payloads
-// round-trip safely from the frontend.
-func (a *App) Publish(topic, payloadB64 string, qos int, retain bool) error {
+// Unsubscribe removes a subscription from a connection.
+func (a *App) Unsubscribe(id, filter string) error {
+	c := a.client(id)
+	if c == nil {
+		return fmt.Errorf("connection %s not found", id)
+	}
+	return c.Unsubscribe(filter)
+}
+
+// Publish publishes a message on a connection. payloadB64 is base64-encoded so
+// binary payloads round-trip safely from the frontend.
+func (a *App) Publish(id, topic, payloadB64 string, qos int, retain bool) error {
+	c := a.client(id)
+	if c == nil {
+		return fmt.Errorf("connection %s not found", id)
+	}
 	payload, err := base64.StdEncoding.DecodeString(payloadB64)
 	if err != nil {
 		return err
 	}
-	return a.client.Publish(topic, payload, byte(qos), retain)
+	return c.Publish(topic, payload, byte(qos), retain)
 }
 
 // --- Profiles -------------------------------------------------------------
