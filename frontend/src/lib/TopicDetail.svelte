@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tree, selectedPath, findNode } from "./stores";
   import type { TreeNode, HistoryEntry } from "./stores";
-  import { prettyJSON, formatTime } from "./util";
+  import { prettyJSON, formatTime, parseCoord, mapURL, mapEmbedURL } from "./util";
+  import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
   import { decodeRaw, pluginList } from "./plugins";
   import type { DecodeResult } from "./plugins";
 
@@ -24,6 +25,10 @@
     ? viewing ?? { raw: node.raw, text: node.text, ts: node.ts, qos: node.qos, retained: node.retained }
     : null;
   $: parsed = sample && sample.text !== null ? prettyJSON(sample.text) : null;
+  // If the payload looks like a GPS coordinate, offer an embedded map.
+  $: coord = parseCoord(sample?.text);
+  let showMap = false;
+  let mapExpanded = false;
 
   // Decode the shown payload. Re-runs on selection, new message, pin change,
   // and when the plugin set changes ($pluginList).
@@ -90,7 +95,40 @@
       {:else if parsed?.isJSON}
         <span class="chip ok">JSON</span>
       {/if}
+      {#if coord}
+        <button
+          class="chip map"
+          class:active={showMap}
+          title="Show {coord.lat}, {coord.lon} on a map"
+          on:click={() => (showMap = !showMap)}
+        >
+          📍 map
+        </button>
+      {/if}
     </div>
+
+    {#if coord && showMap}
+      {@const c = coord}
+      <div class="map-panel" class:expanded={mapExpanded}>
+        <iframe
+          class="map-frame"
+          title="Map of {c.lat}, {c.lon}"
+          src={mapEmbedURL(c, mapExpanded ? 0.02 : 0.01)}
+          loading="lazy"
+        ></iframe>
+        <div class="map-bar">
+          <span class="map-coord">{c.lat}, {c.lon}</span>
+          <span class="map-actions">
+            <button class="link" on:click={() => (mapExpanded = !mapExpanded)}>
+              {mapExpanded ? "− collapse" : "⤢ expand"}
+            </button>
+            <button class="link" on:click={() => BrowserOpenURL(mapURL(c))}>
+              open in browser ↗
+            </button>
+          </span>
+        </div>
+      </div>
+    {/if}
 
     {#if node.text === null}
       <div class="empty small">This is a branch with no direct value.</div>
@@ -195,6 +233,50 @@
   .chip.plugin.active {
     color: var(--accent);
     border-color: var(--accent);
+  }
+  .chip.map {
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .chip.map:hover,
+  .chip.map.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .map-panel {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .map-frame {
+    display: block;
+    width: 100%;
+    height: 160px;
+    border: 0;
+    background: var(--bg-inset);
+  }
+  .map-panel.expanded .map-frame {
+    height: 320px;
+  }
+  .map-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    background: var(--bg-inset);
+    border-top: 1px solid var(--border);
+  }
+  .map-coord {
+    font-family: var(--mono);
+    color: var(--text-dim);
+  }
+  .map-actions {
+    display: flex;
+    gap: 12px;
   }
   .plugin-error {
     font-size: 12px;
