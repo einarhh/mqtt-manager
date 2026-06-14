@@ -9,7 +9,18 @@
     SaveProfile,
     DeleteProfile,
   } from "../../wailsjs/go/main/App";
+  import type { profiles as models } from "../../wailsjs/go/models";
   import Icon from "./Icon.svelte";
+
+  // The wails-generated ConnectionProfile is a class with helper methods; our
+  // local Profile is a plain object, so cast at the serialization boundary.
+  const asProfile = (p: Profile) =>
+    p as unknown as models.ConnectionProfile;
+
+  interface Subscription {
+    filter: string;
+    qos: number;
+  }
 
   interface Profile {
     id: string;
@@ -23,16 +34,23 @@
     username: string;
     password: string;
     keepAlive: number;
-    subFilter: string;
-    subQos: number;
+    subscriptions: Subscription[];
+    // Legacy single-topic fields, present on profiles saved before multi-topic.
+    subFilter?: string;
+    subQos?: number;
   }
 
   let profiles: Profile[] = [];
   let draft: Profile = blank();
   let error = "";
+  // The editor form is hidden by default; the panel shows just the saved list.
+  // It opens for New / editing, and stays open while a connection is live so the
+  // Disconnect control remains reachable.
+  let editing = false;
 
   $: connected = $status.status === "connected";
   $: busy = $status.status === "connecting";
+  $: showForm = editing || connected || busy;
 
   function randomClientId(): string {
     return "mqtt-manager-" + Math.random().toString(16).slice(2, 8);
@@ -51,9 +69,20 @@
       username: "",
       password: "",
       keepAlive: 30,
-      subFilter: "#",
-      subQos: 0,
+      subscriptions: [{ filter: "#", qos: 0 }],
     };
+  }
+
+  // Old profiles store a single subFilter/subQos; fold them into the list so the
+  // editor always works with subscriptions[].
+  function normalize(p: Profile): Profile {
+    const subs =
+      p.subscriptions && p.subscriptions.length > 0
+        ? p.subscriptions
+        : p.subFilter
+          ? [{ filter: p.subFilter, qos: p.subQos ?? 0 }]
+          : [];
+    return { ...p, subscriptions: subs, subFilter: undefined, subQos: undefined };
   }
 
   // Keep the default port in sync with the TLS toggle while it's untouched.
@@ -72,17 +101,36 @@
 
   function newProfile() {
     draft = blank();
+    error = "";
+    editing = true;
   }
 
   function edit(p: Profile) {
-    draft = { ...p };
+    draft = normalize({ ...p });
+    error = "";
+    editing = true;
+  }
+
+  // Close the editor back to the bare connection list.
+  function cancel() {
+    editing = false;
+    error = "";
+    draft = blank();
+  }
+
+  function addSubscription() {
+    draft.subscriptions = [...draft.subscriptions, { filter: "", qos: 0 }];
+  }
+
+  function removeSubscription(i: number) {
+    draft.subscriptions = draft.subscriptions.filter((_, idx) => idx !== i);
   }
 
   async function save() {
     error = "";
     try {
-      const saved = (await SaveProfile(draft)) as Profile;
-      draft = { ...saved };
+      const saved = (await SaveProfile(asProfile(draft))) as Profile;
+      draft = normalize({ ...saved });
       await loadProfiles();
     } catch (e) {
       error = String(e);
@@ -94,6 +142,7 @@
     try {
       await DeleteProfile(draft.id);
       draft = blank();
+      editing = false;
       await loadProfiles();
     } catch (e) {
       error = String(e);
@@ -104,8 +153,15 @@
     error = "";
     try {
       clearTree();
-      await Connect(draft);
-      await Subscribe(draft.subFilter || "#", Number(draft.subQos));
+      await Connect(asProfile(draft));
+      const subs = draft.subscriptions.filter((s) => s.filter.trim() !== "");
+      if (subs.length === 0) {
+        await Subscribe("#", 0);
+      } else {
+        for (const s of subs) {
+          await Subscribe(s.filter.trim(), Number(s.qos));
+        }
+      }
     } catch (e) {
       error = String(e);
     }
@@ -145,7 +201,16 @@
     {/if}
   </div>
 
+  {#if showForm}
   <div class="form">
+    <div class="form-head">
+      <span class="title">{draft.id ? "Edit connection" : "New connection"}</span>
+      {#if !connected && !busy}
+        <button class="icon-btn" title="Close" on:click={cancel}>
+          <Icon name="close" size={14} />
+        </button>
+      {/if}
+    </div>
     <label>Name<input bind:value={draft.name} /></label>
     <div class="two">
       <label class="grow">Host<input bind:value={draft.host} /></label>
@@ -172,16 +237,34 @@
     <label>Username<input bind:value={draft.username} /></label>
     <label>Password<input type="password" bind:value={draft.password} /></label>
 
-    <div class="two">
-      <label class="grow">Subscribe<input bind:value={draft.subFilter} /></label>
-      <label class="port">
-        QoS
-        <select bind:value={draft.subQos}>
-          <option value={0}>0</option>
-          <option value={1}>1</option>
-          <option value={2}>2</option>
-        </select>
-      </label>
+    <div class="subs">
+      <div class="subs-head">
+        <span>Subscriptions</span>
+        <button class="link" on:click={addSubscription}>
+          <Icon name="plus" size={13} />
+          Add topic
+        </button>
+      </div>
+      {#if draft.subscriptions.length === 0}
+        <div class="hint">No topics — defaults to <code>#</code> on connect.</div>
+      {/if}
+      {#each draft.subscriptions as sub, i (i)}
+        <div class="sub-row">
+          <input class="grow" placeholder="topic/filter/#" bind:value={sub.filter} />
+          <select class="qos" bind:value={sub.qos}>
+            <option value={0}>0</option>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+          </select>
+          <button
+            class="icon-btn"
+            title="Remove topic"
+            on:click={() => removeSubscription(i)}
+          >
+            <Icon name="trash" size={14} />
+          </button>
+        </div>
+      {/each}
     </div>
 
     <div class="actions">
@@ -198,6 +281,7 @@
 
     {#if error}<div class="error">{error}</div>{/if}
   </div>
+  {/if}
 </div>
 
 <style>
@@ -260,6 +344,12 @@
     gap: 8px;
     padding: 12px;
   }
+  .form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
   label {
     display: flex;
     flex-direction: column;
@@ -283,6 +373,48 @@
   }
   .port {
     width: 76px;
+  }
+  .subs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .subs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .sub-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-row .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .sub-row .qos {
+    width: 52px;
+  }
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .icon-btn:hover {
+    color: var(--err);
+    background: var(--bg-hover);
+  }
+  .subs code {
+    font-family: var(--mono);
   }
   .actions {
     display: flex;

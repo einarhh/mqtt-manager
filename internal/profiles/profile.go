@@ -7,21 +7,41 @@ import (
 	"os"
 )
 
+// Subscription is a single topic filter and the QoS to subscribe it at.
+type Subscription struct {
+	Filter string `json:"filter"`
+	QoS    byte   `json:"qos"` // 0,1,2
+}
+
 // ConnectionProfile describes a saved MQTT broker connection.
 type ConnectionProfile struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Host        string `json:"host"`
-	Port        int    `json:"port"`
-	UseTLS      bool   `json:"useTls"`
-	TLSInsecure bool   `json:"tlsInsecure"`
-	CACertPath  string `json:"caCertPath"`
-	ClientID    string `json:"clientId"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	KeepAlive   int    `json:"keepAlive"`   // seconds; 0 -> default 30
-	SubFilter   string `json:"subFilter"`   // default subscribe topic filter
-	SubQoS      byte   `json:"subQos"`      // 0,1,2
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	Host          string         `json:"host"`
+	Port          int            `json:"port"`
+	UseTLS        bool           `json:"useTls"`
+	TLSInsecure   bool           `json:"tlsInsecure"`
+	CACertPath    string         `json:"caCertPath"`
+	ClientID      string         `json:"clientId"`
+	Username      string         `json:"username"`
+	Password      string         `json:"password"`
+	KeepAlive     int            `json:"keepAlive"`     // seconds; 0 -> default 30
+	Subscriptions []Subscription `json:"subscriptions"` // topic filters to subscribe on connect
+
+	// Legacy single-topic fields, kept for migrating older profiles.json files.
+	// Normalize folds these into Subscriptions and clears them.
+	SubFilter string `json:"subFilter,omitempty"`
+	SubQoS    byte   `json:"subQos,omitempty"`
+}
+
+// Normalize migrates the legacy single-topic fields into Subscriptions so older
+// saved profiles keep working. It is idempotent.
+func (p *ConnectionProfile) Normalize() {
+	if len(p.Subscriptions) == 0 && p.SubFilter != "" {
+		p.Subscriptions = []Subscription{{Filter: p.SubFilter, QoS: p.SubQoS}}
+	}
+	p.SubFilter = ""
+	p.SubQoS = 0
 }
 
 // BrokerURL builds the scheme://host:port string paho expects.

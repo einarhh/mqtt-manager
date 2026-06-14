@@ -49,6 +49,7 @@ func (s *Store) Save(p ConnectionProfile) (ConnectionProfile, error) {
 	if p.ID == "" {
 		p.ID = newID()
 	}
+	p.Normalize()
 	replaced := false
 	for i := range list {
 		if list[i].ID == p.ID {
@@ -95,6 +96,9 @@ func (s *Store) read() ([]ConnectionProfile, error) {
 		if err := json.Unmarshal(data, &list); err != nil {
 			return nil, fmt.Errorf("parsing profiles: %w", err)
 		}
+	}
+	for i := range list {
+		list[i].Normalize()
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].Name < list[j].Name })
 	return list, nil

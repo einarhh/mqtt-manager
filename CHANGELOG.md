@@ -8,6 +8,8 @@ Semantic Versioning (https://semver.org).
 
 ## [Unreleased]
 
+- Subscribe to multiple topics per connection, each with its own QoS
+- Collapse the connection panel to the saved list, opening the editor only for New or edit
 - Add a toggle to order topics alphabetically or by received order
 - Restore the connection status after a reload instead of showing a stale "disconnected"
 - Decode GPS coordinates from payloads
