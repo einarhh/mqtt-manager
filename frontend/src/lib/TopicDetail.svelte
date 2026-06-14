@@ -5,6 +5,7 @@
   import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
   import { decodeRaw, pluginList } from "./plugins";
   import type { DecodeResult } from "./plugins";
+  import Icon from "./Icon.svelte";
 
   // Re-resolve whenever the tree updates or the selection changes.
   $: node = ($tree, findNode($selectedPath));
@@ -74,7 +75,7 @@
 
 <div class="detail">
   {#if !node}
-    <div class="empty">Select a topic to inspect its value and history.</div>
+    <div class="empty">Select a topic to inspect its payload and history.</div>
   {:else}
     <div class="topic" title={node.path}>{node.path}</div>
 
@@ -90,7 +91,8 @@
           title="Decoded by the {decoded.pluginName} plugin — click to toggle raw"
           on:click={() => (showRaw = !showRaw)}
         >
-          ⚙ {decoded.pluginName}{showRaw ? " (raw)" : ""}
+          <Icon name="code" size={12} />
+          {decoded.pluginName}{showRaw ? " · raw" : ""}
         </button>
       {:else if parsed?.isJSON}
         <span class="chip ok">JSON</span>
@@ -102,7 +104,8 @@
           title="Show {coord.lat}, {coord.lon} on a map"
           on:click={() => (showMap = !showMap)}
         >
-          📍 map
+          <Icon name="pin" size={12} />
+          Map
         </button>
       {/if}
     </div>
@@ -120,10 +123,12 @@
           <span class="map-coord">{c.lat}, {c.lon}</span>
           <span class="map-actions">
             <button class="link" on:click={() => (mapExpanded = !mapExpanded)}>
-              {mapExpanded ? "− collapse" : "⤢ expand"}
+              <Icon name={mapExpanded ? "collapse" : "expand"} size={13} />
+              {mapExpanded ? "Collapse" : "Expand"}
             </button>
             <button class="link" on:click={() => BrowserOpenURL(mapURL(c))}>
-              open in browser ↗
+              <Icon name="external" size={13} />
+              Open in browser
             </button>
           </span>
         </div>
@@ -131,16 +136,19 @@
     {/if}
 
     {#if node.text === null}
-      <div class="empty small">This is a branch with no direct value.</div>
+      <div class="empty small">This topic groups others and carries no message of its own.</div>
     {:else}
       {#if viewing}
         <div class="viewing">
-          Viewing history message{sample?.ts ? " · " + formatTime(sample.ts) : ""}
-          <button class="link" on:click={backToLive}>← back to latest</button>
+          Viewing past message{sample?.ts ? " · " + formatTime(sample.ts) : ""}
+          <button class="link" on:click={backToLive}>← Back to latest</button>
         </div>
       {/if}
       {#if decoded?.error}
-        <div class="plugin-error">⚠ {decoded.pluginName}: {decoded.error}</div>
+        <div class="plugin-error">
+          <Icon name="warning" size={13} />
+          {decoded.pluginName}: {decoded.error}
+        </div>
       {/if}
 
       <div class="content">
@@ -213,6 +221,9 @@
     margin-bottom: 10px;
   }
   .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
     color: var(--text-dim);
     background: var(--bg-hover);
@@ -279,6 +290,9 @@
     gap: 12px;
   }
   .plugin-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 12px;
     color: var(--warn);
     background: var(--bg-inset);
@@ -413,11 +427,17 @@
     padding: 12px 8px;
   }
   .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: none;
     border: none;
     color: var(--accent);
     cursor: pointer;
     font-size: 12px;
     padding: 0;
+  }
+  .link:hover {
+    color: var(--accent-strong);
   }
 </style>

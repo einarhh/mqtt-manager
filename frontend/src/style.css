@@ -1,18 +1,47 @@
+/* Theme tokens.
+   :root carries the dark theme (also the default before JS resolves a theme);
+   [data-theme="light"] overrides only what changes. The active theme is set on
+   <html data-theme="…"> by lib/theme.ts (and an inline script in index.html to
+   avoid a flash of the wrong theme on load). */
 :root {
-  --bg: #111620;
-  --bg-bar: #161c28;
-  --bg-panel: #141a25;
-  --bg-inset: #0d121b;
-  --bg-hover: #1e2735;
-  --border: #283142;
-  --text: #e6ebf2;
-  --text-dim: #8a93a6;
-  --accent: #4fa3ff;
-  --accent-soft: rgba(79, 163, 255, 0.16);
-  --ok: #3ecf8e;
-  --warn: #e0a13c;
-  --err: #ef5e6e;
+  --bg: #1b1714;
+  --bg-bar: #221d18;
+  --bg-panel: #1f1a16;
+  --bg-inset: #15110e;
+  --bg-hover: #2b251f;
+  --border: #342d25;
+  --border-strong: #463d33;
+  --text: #ece4d9;
+  --text-dim: #9d9285;
+  --accent: #e07a4a;
+  --accent-strong: #c25f33;
+  --accent-soft: rgba(224, 122, 74, 0.15);
+  --on-accent: #241813;
+  --ok: #5cb585;
+  --warn: #e0b24a;
+  --err: #e26a5e;
+  --shadow: rgba(0, 0, 0, 0.45);
   --mono: "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f1e9;
+  --bg-bar: #efe8dc;
+  --bg-panel: #fbf7f0;
+  --bg-inset: #fffdf9;
+  --bg-hover: #ece3d4;
+  --border: #ddd2c1;
+  --border-strong: #cdc1ac;
+  --text: #2c2620;
+  --text-dim: #837868;
+  --accent: #c25a2e;
+  --accent-strong: #a4471f;
+  --accent-soft: rgba(194, 90, 46, 0.12);
+  --on-accent: #fff7f0;
+  --ok: #2f8f5f;
+  --warn: #9c7415;
+  --err: #c0402f;
+  --shadow: rgba(80, 60, 40, 0.18);
 }
 
 * {
@@ -40,32 +69,36 @@ select,
 textarea {
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--text);
   padding: 6px 8px;
   font-size: 13px;
   font-family: inherit;
   outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 button {
   border: 1px solid var(--border);
   background: var(--bg-hover);
   color: var(--text);
-  border-radius: 5px;
+  border-radius: 6px;
   padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  background: var(--bg);
 }
 
 button:disabled {
@@ -76,14 +109,25 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #07121f;
+  color: var(--on-accent);
   font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 button.danger {
   background: transparent;
   border-color: var(--err);
   color: var(--err);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--err);
+  border-color: var(--err);
+  color: var(--on-accent);
 }
 
 button.ghost {
@@ -95,8 +139,11 @@ button.ghost {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 5px;
+  background: var(--border-strong);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
 }
 ::-webkit-scrollbar-track {
   background: transparent;

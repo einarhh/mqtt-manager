@@ -9,6 +9,7 @@
     SaveProfile,
     DeleteProfile,
   } from "../../wailsjs/go/main/App";
+  import Icon from "./Icon.svelte";
 
   interface Profile {
     id: string;
@@ -125,7 +126,10 @@
   <div class="saved">
     <div class="row-head">
       <span class="title">Connections</span>
-      <button class="link" on:click={newProfile}>+ new</button>
+      <button class="link" on:click={newProfile}>
+        <Icon name="plus" size={13} />
+        New
+      </button>
     </div>
     {#if profiles.length === 0}
       <div class="hint">No saved connections yet.</div>
@@ -156,7 +160,7 @@
       {#if draft.useTls}
         <label class="check">
           <input type="checkbox" bind:checked={draft.tlsInsecure} />
-          skip verify
+          Skip verify
         </label>
       {/if}
     </div>
@@ -193,7 +197,6 @@
     </div>
 
     {#if error}<div class="error">{error}</div>{/if}
-    <div class="warn-note">⚠ Passwords are stored in plaintext on disk (v1).</div>
   </div>
 </div>
 
@@ -291,6 +294,9 @@
     margin-left: auto;
   }
   .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: none;
     border: none;
     color: var(--accent);
@@ -298,13 +304,11 @@
     font-size: 12px;
     padding: 0;
   }
+  .link:hover {
+    color: var(--accent-strong);
+  }
   .error {
     color: var(--err);
     font-size: 12px;
-  }
-  .warn-note {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 4px;
   }
 </style>

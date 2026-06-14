@@ -42,15 +42,19 @@ type Client struct {
 	batcher  *batcher
 	onStatus StatusFunc
 	subs     map[string]byte // active subscriptions (filter -> qos), for resubscribe
+
+	curStatus string // last reported status, so the frontend can re-query after a reload
+	curDetail string
 }
 
 // NewClient builds a client. onMessages receives throttled batches of incoming
 // messages; onStatus receives connection-state transitions.
 func NewClient(onMessages func([]Message), onStatus StatusFunc) *Client {
 	return &Client{
-		batcher:  newBatcher(100*time.Millisecond, onMessages),
-		onStatus: onStatus,
-		subs:     map[string]byte{},
+		batcher:   newBatcher(100*time.Millisecond, onMessages),
+		onStatus:  onStatus,
+		subs:      map[string]byte{},
+		curStatus: StatusDisconnected,
 	}
 }
 
@@ -222,7 +226,20 @@ func (c *Client) current() paho.Client {
 }
 
 func (c *Client) status(s, detail string) {
+	c.mu.Lock()
+	c.curStatus = s
+	c.curDetail = detail
+	c.mu.Unlock()
 	if c.onStatus != nil {
 		c.onStatus(s, detail)
 	}
+}
+
+// Status returns the last reported connection state. The frontend calls this on
+// load to recover the current status, since status is otherwise only pushed on
+// transitions (a page reload would otherwise show a stale "disconnected").
+func (c *Client) Status() (status, detail string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.curStatus, c.curDetail
 }

@@ -1,21 +1,8 @@
-<script lang="ts">
-  // The app icon as inline SVG — mirrors build/appicon.png so the header logo
-  // matches the Dock/Finder icon. Scales crisply at any size.
-  export let size = 26;
-</script>
-
-<svg
-  class="logo"
-  width={size}
-  height={size}
-  viewBox="0 0 1024 1024"
-  role="img"
-  aria-label="MQTT Manager logo"
->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="mmLogoGradient" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" style="stop-color: var(--accent)" />
-      <stop offset="1" style="stop-color: var(--accent-strong)" />
+      <stop offset="0" stop-color="#e07a4a" />
+      <stop offset="1" stop-color="#c25f33" />
     </linearGradient>
   </defs>
   <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="url(#mmLogoGradient)" />
@@ -30,13 +17,6 @@
     <circle cx="698" cy="698" r="62" />
     <circle cx="512" cy="360" r="86" />
   </g>
-  <circle cx="512" cy="360" r="60" style="fill: var(--accent)" />
+  <circle cx="512" cy="360" r="60" fill="#e07a4a" />
   <circle cx="512" cy="360" r="42" fill="#ffffff" />
 </svg>
-
-<style>
-  .logo {
-    display: block;
-    flex: 0 0 auto;
-  }
-</style>

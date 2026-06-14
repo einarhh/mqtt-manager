@@ -46,6 +46,10 @@ export function SaveProfile(arg1) {
   return window['go']['main']['App']['SaveProfile'](arg1);
 }
 
+export function Status() {
+  return window['go']['main']['App']['Status']();
+}
+
 export function Subscribe(arg1, arg2) {
   return window['go']['main']['App']['Subscribe'](arg1, arg2);
 }

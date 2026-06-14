@@ -31,7 +31,7 @@ A plugin is a small JavaScript module that decodes matching MQTT payloads for di
 selected topic matches an enabled plugin, the detail panel renders the plugin's structured
 output (with a toggle back to the raw view).
 
-Plugins are managed from the **⚙ Plugins** button in the header, and stored as plain `.js`
+Plugins are managed from the **Plugins** button in the header, and stored as plain `.js`
 files in `<user-config-dir>/mqtt-manager/plugins/` (an `index.json` tracks name/enabled/order).
 Drop a `.js` file into that folder and it appears in the manager (disabled by default), so
 plugins are shareable by copying a file. The manager also has **import** (pick a `.js` file to

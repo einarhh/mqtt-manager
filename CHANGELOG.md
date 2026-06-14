@@ -6,26 +6,31 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [Unreleased]
+
+- Add a toggle to order topics alphabetically or by received order
+- Restore the connection status after a reload instead of showing a stale "disconnected"
+- Decode GPS coordinates from payloads
+- Refresh the README screenshot to showcase plugin decoding
+
 ## [1.2.0] - 2026-06-12
 
-- Support plugins
-- Add UI screenshot to the README
-- Add MIT license and open-source prep
-- Re-sign the bundle after swapping the icns
-- Add make dist target for a shareable universal macOS build
+- Add plugin support for decoding message payloads
+- Open-source the project under the MIT license
+- Ship a shareable universal macOS build via `make dist`
+- Add a UI screenshot to the README
 
 ## [1.1.0] - 2026-06-11
 
+- Add a native menu with an About item showing the version
 - Use the app icon as the header logo
-- Add native menu with an About item showing the version
-- Generate complete multi-resolution macOS icns after build
+- Generate a complete multi-resolution macOS icon on build
 - Document the Make build and release workflow in the README
 
 ## [1.0.0] - 2026-06-11
 
+- Initial release: MQTT Manager (Wails + Go + Svelte)
+- Browse topics in a live tree with per-topic message detail
+- Re-subscribe automatically on reconnect after sleep/wake
 - Add semantic versioning and Make-driven release tooling
 - Add app icon: topic-tree node graph on a blue squircle
-- UI: password on its own line, click row to toggle, larger tree arrow
-- Ingest each message batch exactly once
-- Re-subscribe on reconnect so messages resume after sleep/wake
-- Initial commit: MQTT Manager v1 (Wails + Go + Svelte)

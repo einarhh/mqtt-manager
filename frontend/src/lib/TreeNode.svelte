@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { TreeNode } from "./stores";
-  import { selectedPath } from "./stores";
+  import { selectedPath, sortMode, sortNodes } from "./stores";
   import { preview } from "./util";
   import Self from "./TreeNode.svelte";
+  import Icon from "./Icon.svelte";
 
   export let node: TreeNode;
   export let depth = 0;
@@ -25,9 +26,10 @@
   $: visible = matches(node, lowerFilter);
   // When filtering, force-expand so matches are revealed.
   $: showChildren = (expanded || !!lowerFilter) && node.children.size > 0;
-  $: kids = [...node.children.values()]
-    .filter((c) => matches(c, lowerFilter))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  $: kids = sortNodes(
+    [...node.children.values()].filter((c) => matches(c, lowerFilter)),
+    $sortMode
+  );
   $: selected = $selectedPath === node.path;
 
   function toggle() {
@@ -51,8 +53,12 @@
       style="padding-left: {depth * 14 + 6}px"
       on:click={onRowClick}
     >
-      <span class="twisty" class:hidden={node.children.size === 0}>
-        {expanded || lowerFilter ? "▾" : "▸"}
+      <span
+        class="twisty"
+        class:hidden={node.children.size === 0}
+        class:open={expanded || !!lowerFilter}
+      >
+        <Icon name="chevron" size={13} stroke={2} />
       </span>
       <span class="name">{node.name || "/"}</span>
       {#if node.children.size > 0}
@@ -91,12 +97,16 @@
     background: var(--accent-soft);
   }
   .twisty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 16px;
     flex: 0 0 16px;
-    text-align: center;
     color: var(--text-dim);
-    font-size: 14px;
-    line-height: 1;
+    transition: transform 0.12s ease;
+  }
+  .twisty.open {
+    transform: rotate(90deg);
   }
   .twisty.hidden {
     visibility: hidden;

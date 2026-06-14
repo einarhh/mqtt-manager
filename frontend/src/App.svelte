@@ -1,19 +1,23 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
-  import { Version } from "../wailsjs/go/main/App";
+  import { Version, Status } from "../wailsjs/go/main/App";
   import { ingest, status, totalTopics, totalMessages } from "./lib/stores";
   import type { IncomingMessage, ConnStatus } from "./lib/stores";
   import { reload as reloadPlugins } from "./lib/plugins";
 
   let appVersion = "";
   let showPlugins = false;
+  let showAbout = false;
   import Logo from "./lib/Logo.svelte";
+  import Icon from "./lib/Icon.svelte";
   import ConnectionPanel from "./lib/ConnectionPanel.svelte";
   import TopicTree from "./lib/TopicTree.svelte";
   import TopicDetail from "./lib/TopicDetail.svelte";
   import PublishPanel from "./lib/PublishPanel.svelte";
   import PluginManager from "./lib/PluginManager.svelte";
+  import About from "./lib/About.svelte";
+  import { themeMode, cycleTheme } from "./lib/theme";
 
   const STATUS_LABELS: Record<string, string> = {
     disconnected: "Disconnected",
@@ -23,6 +27,13 @@
     error: "Error",
   };
 
+  const THEME_ICON = { system: "monitor", light: "sun", dark: "moon" } as const;
+  const THEME_LABEL = {
+    system: "Theme: follow system",
+    light: "Theme: light",
+    dark: "Theme: dark",
+  } as const;
+
   onMount(() => {
     // Clear any listeners left over from a previous mount (e.g. a dev hot-reload
     // while the Go backend keeps running) so each batch is ingested exactly once.
@@ -31,6 +42,9 @@
     EventsOn("mqtt:messages", (batch: IncomingMessage[]) => ingest(batch));
     EventsOn("mqtt:status", (s: ConnStatus) => status.set(s));
     Version().then((v) => (appVersion = v));
+    // Status is only pushed on transitions, so recover the current state on load
+    // (a reload would otherwise show a stale "disconnected" while messages flow).
+    Status().then((s) => status.set(s as ConnStatus));
     reloadPlugins();
   });
 
@@ -45,7 +59,11 @@
     <div class="brand">
       <Logo size={26} />
       <span class="app-name">MQTT Manager</span>
-      {#if appVersion}<span class="version">{appVersion}</span>{/if}
+      {#if appVersion}
+        <button class="version" title="About MQTT Manager" on:click={() => (showAbout = true)}>
+          {appVersion}
+        </button>
+      {/if}
     </div>
     <div class="status">
       <span class="dot {$status.status}"></span>
@@ -55,11 +73,26 @@
     <div class="counters">
       {$totalTopics} topics · {$totalMessages} messages
     </div>
-    <button class="plugins-btn" on:click={() => (showPlugins = true)}>⚙ Plugins</button>
+    <button
+      class="icon-btn"
+      title={THEME_LABEL[$themeMode]}
+      aria-label={THEME_LABEL[$themeMode]}
+      on:click={cycleTheme}
+    >
+      <Icon name={THEME_ICON[$themeMode]} size={15} />
+    </button>
+    <button class="plugins-btn" on:click={() => (showPlugins = true)}>
+      <Icon name="code" size={14} />
+      Plugins
+    </button>
   </header>
 
   {#if showPlugins}
     <PluginManager on:close={() => (showPlugins = false)} />
+  {/if}
+
+  {#if showAbout}
+    <About version={appVersion} on:close={() => (showAbout = false)} />
   {/if}
 
   <main>
@@ -82,9 +115,9 @@
   header {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 18px;
     height: 48px;
-    padding: 0 16px;
+    padding: 0 14px;
     background: var(--bg-bar);
     border-bottom: 1px solid var(--border);
     flex: 0 0 48px;
@@ -105,6 +138,13 @@
     padding: 1px 6px;
     border: 1px solid var(--border);
     border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .version:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
   }
   .status {
     display: flex;
@@ -137,18 +177,39 @@
     margin-left: auto;
     font-size: 12px;
     color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 5px;
+    cursor: pointer;
+  }
+  .icon-btn:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+    border-color: var(--border);
   }
   .plugins-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 12px;
     color: var(--text-dim);
     background: var(--bg-hover);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 3px 10px;
+    padding: 4px 10px;
     cursor: pointer;
   }
   .plugins-btn:hover {
     color: var(--text);
+    border-color: var(--border-strong);
   }
   main {
     flex: 1;

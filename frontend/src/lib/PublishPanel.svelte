@@ -37,7 +37,7 @@
   <div class="header">
     <span class="title">Publish</span>
     <button class="link" on:click={useSelected} disabled={!$selectedPath}>
-      use selected
+      Use selected
     </button>
   </div>
 
@@ -60,10 +60,16 @@
     </label>
     <label class="retain">
       <input type="checkbox" bind:checked={retain} />
-      retain
+      Retain
     </label>
-    <button class="primary" class:flash on:click={publish} disabled={!connected}>
-      {connected ? "Publish" : "Not connected"}
+    <button
+      class="primary"
+      class:flash
+      on:click={publish}
+      disabled={!connected}
+      title={connected ? "Publish to broker" : "Connect to a broker first"}
+    >
+      Publish
     </button>
   </div>
 

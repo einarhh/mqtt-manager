@@ -101,6 +101,14 @@ func (a *App) Disconnect() {
 	a.client.Disconnect()
 }
 
+// Status returns the current connection status. The frontend calls this on load
+// to recover state after a reload, since status is otherwise only pushed on
+// transitions.
+func (a *App) Status() map[string]string {
+	status, detail := a.client.Status()
+	return map[string]string{"status": status, "detail": detail}
+}
+
 // Subscribe subscribes to a topic filter.
 func (a *App) Subscribe(filter string, qos int) error {
 	return a.client.Subscribe(filter, byte(qos))

@@ -1,12 +1,27 @@
 <script lang="ts">
-  import { tree, totalTopics, totalMessages, clearTree } from "./stores";
+  import {
+    tree,
+    totalTopics,
+    totalMessages,
+    clearTree,
+    sortMode,
+    sortNodes,
+  } from "./stores";
   import TreeNode from "./TreeNode.svelte";
+  import Icon from "./Icon.svelte";
 
   let filter = "";
 
-  $: rootChildren = [...$tree.children.values()].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  $: rootChildren = sortNodes([...$tree.children.values()], $sortMode);
+
+  const SORT_LABEL = {
+    received: "Order: received — sort A–Z",
+    alpha: "Order: A–Z — sort by received",
+  } as const;
+
+  function toggleSort() {
+    sortMode.update((m) => (m === "alpha" ? "received" : "alpha"));
+  }
 </script>
 
 <div class="tree-panel">
@@ -17,6 +32,15 @@
       placeholder="Filter topics…"
       bind:value={filter}
     />
+    <button
+      class="icon-btn"
+      class:active={$sortMode === "alpha"}
+      title={SORT_LABEL[$sortMode]}
+      aria-label={SORT_LABEL[$sortMode]}
+      on:click={toggleSort}
+    >
+      <Icon name="sort-alpha" size={15} />
+    </button>
     <button class="ghost" title="Clear all received topics" on:click={clearTree}>
       Clear
     </button>
@@ -54,6 +78,27 @@
   }
   .filter {
     flex: 1;
+  }
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px;
+    cursor: pointer;
+  }
+  .icon-btn:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+  }
+  .icon-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
   .stats {
     display: flex;

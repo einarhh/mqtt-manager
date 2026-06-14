@@ -11,6 +11,7 @@
     exportPlugin,
   } from "./plugins";
   import type { PluginInfo } from "./plugins";
+  import Icon from "./Icon.svelte";
 
   const dispatch = createEventDispatcher();
 
@@ -124,7 +125,7 @@ export default {
   <div class="modal">
     <header>
       <span class="title">Decoder plugins</span>
-      <button class="x" on:click={close}>✕</button>
+      <button class="x" on:click={close} aria-label="Close"><Icon name="close" size={16} /></button>
     </header>
 
     <div class="body">
@@ -132,8 +133,11 @@ export default {
         <div class="list-head">
           <span>Installed</span>
           <div class="head-actions">
-            <button class="link" on:click={doImport}>import</button>
-            <button class="link" on:click={newPlugin}>+ new</button>
+            <button class="link" on:click={doImport}>Import</button>
+            <button class="link" on:click={newPlugin}>
+              <Icon name="plus" size={13} />
+              New
+            </button>
           </div>
         </div>
         {#if $pluginList.length === 0}
@@ -156,7 +160,7 @@ export default {
                       <span class="match">• matches selection</span>
                     {/if}
                   </span>
-                  {#if p.loadError}<span class="perr">⚠ {p.loadError}</span>{/if}
+                  {#if p.loadError}<span class="perr"><Icon name="warning" size={12} /> {p.loadError}</span>{/if}
                 </div>
               </li>
             {/each}
@@ -180,7 +184,7 @@ export default {
             <textarea bind:value={draft.source} spellcheck="false"></textarea>
           </label>
           {#if draft.loadError}
-            <div class="error">⚠ {draft.loadError}</div>
+            <div class="error"><Icon name="warning" size={13} /> {draft.loadError}</div>
           {/if}
           {#if error}<div class="error">{error}</div>{/if}
           <div class="actions">
@@ -228,11 +232,19 @@ export default {
     font-weight: 700;
   }
   .x {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    font-size: 14px;
+    padding: 2px;
+    border-radius: 6px;
+  }
+  .x:hover {
+    color: var(--text);
+    background: var(--bg-hover);
   }
   .body {
     flex: 1;
@@ -296,6 +308,9 @@ export default {
     color: var(--ok);
   }
   .perr {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
     color: var(--warn);
   }
@@ -344,6 +359,9 @@ export default {
     justify-content: flex-end;
   }
   .error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: var(--err);
     font-size: 12px;
   }
@@ -355,11 +373,17 @@ export default {
     margin: auto;
   }
   .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: none;
     border: none;
     color: var(--accent);
     cursor: pointer;
     font-size: 12px;
     padding: 0;
+  }
+  .link:hover {
+    color: var(--accent-strong);
   }
 </style>

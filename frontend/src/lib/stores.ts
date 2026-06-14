@@ -37,6 +37,27 @@ export interface ConnStatus {
   detail: string;
 }
 
+// How sibling topics are ordered in the tree. "received" keeps the order they
+// first arrived (the Map's insertion order); "alpha" sorts by name.
+export type SortMode = "received" | "alpha";
+
+const SORT_KEY = "mqtt-manager:sort";
+
+function readStoredSort(): SortMode {
+  return localStorage.getItem(SORT_KEY) === "alpha" ? "alpha" : "received";
+}
+
+export const sortMode = writable<SortMode>(readStoredSort());
+sortMode.subscribe((m) => localStorage.setItem(SORT_KEY, m));
+
+// Order a list of sibling nodes according to the active sort mode. "received"
+// preserves the source order (callers pass nodes straight from the Map).
+export function sortNodes(nodes: TreeNode[], mode: SortMode): TreeNode[] {
+  return mode === "alpha"
+    ? nodes.sort((a, b) => a.name.localeCompare(b.name))
+    : nodes;
+}
+
 const HISTORY_LIMIT = 100;
 
 function makeNode(name: string, path: string): TreeNode {

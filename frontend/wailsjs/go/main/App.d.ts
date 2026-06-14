@@ -25,6 +25,8 @@ export function SavePlugin(arg1:plugins.Plugin):Promise<plugins.Plugin>;
 
 export function SaveProfile(arg1:profiles.ConnectionProfile):Promise<profiles.ConnectionProfile>;
 
+export function Status():Promise<Record<string, string>>;
+
 export function Subscribe(arg1:string,arg2:number):Promise<void>;
 
 export function Unsubscribe(arg1:string):Promise<void>;
