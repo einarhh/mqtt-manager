@@ -6,17 +6,15 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
-## [Unreleased]
+## [1.3.0] - 2026-06-15
 
-- Make connecting clearer with an always-visible Connect button on disconnected connections, and widen the connection list
-
-## [1.3.0] - 2026-06-14
-
+- Chart numeric topic values over time in the topic detail panel, MQTT-Explorer-style
 - Connect to multiple brokers simultaneously and switch between them by selecting a connection in the list
 - Subscribe to multiple topics per connection, each with its own QoS
 - Collapse the connection panel to the saved list, opening the editor only for New or edit
 - Add a toggle to order topics alphabetically or by received order
 - Restore the connection status after a reload instead of showing a stale "disconnected"
+- Make connecting clearer with an always-visible Connect button on disconnected connections, and widen the connection list
 - Decode GPS coordinates from payloads
 - Refresh the README screenshot to showcase plugin decoding
 
