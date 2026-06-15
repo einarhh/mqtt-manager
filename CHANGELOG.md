@@ -6,6 +6,10 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [Unreleased]
+
+- Make connecting clearer with an always-visible Connect button on disconnected connections, and widen the connection list
+
 ## [1.3.0] - 2026-06-14
 
 - Connect to multiple brokers simultaneously and switch between them by selecting a connection in the list

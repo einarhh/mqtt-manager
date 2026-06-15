@@ -248,6 +248,15 @@
               <span class="pname">{p.name}</span>
               <span class="paddr">{p.host}:{p.port}</span>
             </div>
+            {#if !live}
+              <button
+                class="connect-btn"
+                title="Connect to this broker"
+                on:click|stopPropagation={() => connectProfile(p)}
+              >
+                Connect
+              </button>
+            {/if}
             <div class="prow-actions">
               {#if live}
                 <button
@@ -257,23 +266,14 @@
                 >
                   <Icon name="power" size={14} />
                 </button>
-              {:else}
+              {:else if connMap.has(p.id)}
                 <button
                   class="icon-btn act"
-                  title="Connect"
-                  on:click|stopPropagation={() => connectProfile(p)}
+                  title="Remove (discard captured data)"
+                  on:click|stopPropagation={() => removeId(p.id)}
                 >
-                  <Icon name="power" size={14} />
+                  <Icon name="close" size={14} />
                 </button>
-                {#if connMap.has(p.id)}
-                  <button
-                    class="icon-btn act"
-                    title="Remove (discard captured data)"
-                    on:click|stopPropagation={() => removeId(p.id)}
-                  >
-                    <Icon name="close" size={14} />
-                  </button>
-                {/if}
               {/if}
               <button
                 class="icon-btn act"
@@ -450,6 +450,22 @@
   .prow-actions .icon-btn.act:hover {
     color: var(--text);
   }
+  /* Disconnected rows show an always-visible, labelled Connect button so the
+     action is obvious without hovering or decoding an icon. */
+  .connect-btn {
+    flex: 0 0 auto;
+    padding: 2px 10px;
+    font-size: 12px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: 6px;
+  }
+  .connect-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
   .pname {
     font-weight: 600;
     font-size: 13px;
@@ -461,6 +477,9 @@
     font-size: 12px;
     color: var(--text-dim);
     font-family: var(--mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .hint {
     font-size: 12px;

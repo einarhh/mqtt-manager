@@ -233,7 +233,7 @@
   main {
     flex: 1;
     display: grid;
-    grid-template-columns: 300px 1fr 380px;
+    grid-template-columns: 340px 1fr 380px;
     min-height: 0;
   }
   .left {
