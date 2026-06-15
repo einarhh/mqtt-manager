@@ -137,6 +137,17 @@ export function mapEmbedURL(c: Coord, delta = 0.01): string {
   );
 }
 
+// Parse a bare numeric payload into a finite number, or null. Accepts plain
+// decimals and scientific notation ("23.4", "-5", "1e3"); rejects anything with
+// surrounding non-numeric content so JSON, text, and coordinates don't match.
+export function parseNumeric(text: string | null | undefined): number | null {
+  if (text === null || text === undefined) return null;
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 // Collapse a payload to a short single-line preview for the tree.
 export function preview(text: string, max = 64): string {
   const oneLine = text.replace(/\s+/g, " ").trim();

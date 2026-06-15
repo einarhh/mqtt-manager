@@ -31,6 +31,9 @@
     power: '<path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>',
     // pencil — edit a profile
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
+    // line chart — axes with a rising trend line, for the numeric value plot.
+    chart:
+      '<path d="M3 3v18h18"/><polyline points="7 14 11 10 14 13 20 7"/>',
     // A↓ Z — alphabetical sort: a down arrow beside descending-length bars.
     "sort-alpha":
       '<path d="M6 4v16"/><polyline points="3 17 6 20 9 17"/><line x1="13" y1="6" x2="21" y2="6"/><line x1="13" y1="12" x2="18" y2="12"/><line x1="13" y1="18" x2="15" y2="18"/>',

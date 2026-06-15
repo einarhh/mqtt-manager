@@ -1,11 +1,12 @@
 <script lang="ts">
   import { tree, selectedPath, findNode } from "./stores";
   import type { TreeNode, HistoryEntry } from "./stores";
-  import { prettyJSON, formatTime, parseCoord, mapURL, mapEmbedURL } from "./util";
+  import { prettyJSON, formatTime, parseCoord, parseNumeric, mapURL, mapEmbedURL } from "./util";
   import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
   import { decodeRaw, pluginList } from "./plugins";
   import type { DecodeResult } from "./plugins";
   import Icon from "./Icon.svelte";
+  import Chart from "./Chart.svelte";
 
   // Re-resolve whenever the tree updates or the selection changes.
   $: node = ($tree, findNode($selectedPath));
@@ -30,6 +31,39 @@
   $: coord = parseCoord(sample?.text);
   let showMap = false;
   let mapExpanded = false;
+
+  // Numeric series for the chart, built from this topic's history (oldest first).
+  // A topic is "chartable" when most of its recent samples parse as plain numbers,
+  // so an occasional non-numeric blip doesn't disqualify an otherwise numeric feed.
+  $: numericSeries = node
+    ? node.history
+        .map((h) => ({ ts: h.ts, value: parseNumeric(h.text) }))
+        .filter((p): p is { ts: number; value: number } => p.value !== null)
+    : [];
+  $: chartable =
+    node !== null && node.history.length >= 2 && numericSeries.length / node.history.length >= 0.6;
+
+  // Chart visibility follows the selected topic: auto-open for chartable topics,
+  // and reset whenever the selection changes so it doesn't linger on a new topic.
+  let showChart = false;
+  let chartPath: string | null = null;
+  $: if (node && node.path !== chartPath) {
+    chartPath = node.path;
+    showChart = chartable;
+  }
+
+  // Last / min / max shown in the chart section header.
+  $: chartStats = numericSeries.length
+    ? {
+        last: numericSeries[numericSeries.length - 1].value,
+        min: Math.min(...numericSeries.map((p) => p.value)),
+        max: Math.max(...numericSeries.map((p) => p.value)),
+      }
+    : null;
+
+  function fmtStat(v: number): string {
+    return String(Math.round(v * 1000) / 1000);
+  }
 
   // Decode the shown payload. Re-runs on selection, new message, pin change,
   // and when the plugin set changes ($pluginList).
@@ -108,6 +142,17 @@
           Map
         </button>
       {/if}
+      {#if chartable}
+        <button
+          class="chip chart-chip"
+          class:active={showChart}
+          title="Plot this topic's numeric values over time"
+          on:click={() => (showChart = !showChart)}
+        >
+          <Icon name="chart" size={12} />
+          Chart
+        </button>
+      {/if}
     </div>
 
     {#if coord && showMap}
@@ -132,6 +177,23 @@
             </button>
           </span>
         </div>
+      </div>
+    {/if}
+
+    {#if chartable && showChart}
+      <div class="chart-panel">
+        <div class="chart-head">
+          <span class="section-title">Chart</span>
+          {#if chartStats}
+            <span class="chart-stats">
+              <span><span class="k">last</span> {fmtStat(chartStats.last)}</span>
+              <span><span class="k">min</span> {fmtStat(chartStats.min)}</span>
+              <span><span class="k">max</span> {fmtStat(chartStats.max)}</span>
+              <span><span class="k">n</span> {numericSeries.length}</span>
+            </span>
+          {/if}
+        </div>
+        <Chart series={numericSeries} />
       </div>
     {/if}
 
@@ -254,6 +316,43 @@
   .chip.map.active {
     color: var(--accent);
     border-color: var(--accent);
+  }
+  .chip.chart-chip {
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .chip.chart-chip:hover,
+  .chip.chart-chip.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .chart-panel {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px 6px;
+    margin-bottom: 10px;
+    background: var(--bg-inset);
+  }
+  .chart-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .chart-head .section-title {
+    margin-bottom: 0;
+  }
+  .chart-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .chart-stats .k {
+    color: var(--text-dim);
   }
   .map-panel {
     border: 1px solid var(--border);

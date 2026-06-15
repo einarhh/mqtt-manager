@@ -58,7 +58,8 @@ export function sortNodes(nodes: TreeNode[], mode: SortMode): TreeNode[] {
     : nodes;
 }
 
-const HISTORY_LIMIT = 100;
+// Kept deep enough to give the numeric chart a usable window of points.
+const HISTORY_LIMIT = 500;
 
 function makeNode(name: string, path: string): TreeNode {
   return {
