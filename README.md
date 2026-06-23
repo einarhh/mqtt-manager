@@ -57,6 +57,7 @@ export default {
       fields: [{ label: "rssi", value: -73, hint: "dBm" }], // label/value table
       json: { any: "object" },                       // optional pretty-printed JSON block
       text: "raw block",                             // optional monospace block
+      // html: "<div>…</div>",                       // optional escape hatch (see below)
       // error: "..."                                // optional; shows an error banner
     };
   },
@@ -66,6 +67,62 @@ export default {
 `decode()` must return a plain (JSON-serialisable) object. Plugins run in a Web Worker off the
 UI thread; a plugin that throws shows an error banner, and one that hangs is watchdog-terminated
 and disabled for the session.
+
+#### Custom rendering (`html`)
+
+For anything the structured `fields`/`json`/`text` can't express, return an **`html`** string —
+it's rendered verbatim in the right panel and takes precedence over the structured fields, so the
+plugin fully owns its presentation (custom layout, colours, gauges, multi-column, etc.):
+
+```js
+decode(ctx) {
+  return {
+    html: `<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
+      <b>node</b><span>${ctx.bytes[0]}</span>
+      <b>state</b><span style="color:var(--ok)">online</span>
+    </div>`,
+  };
+}
+```
+
+Use the app's CSS variables to match the theme: `--accent`, `--text`, `--text-dim`, `--border`,
+`--ok`, `--warn`, `--err`, `--bg-inset`, `--bg-hover`, `--mono`. The markup is author-trusted
+(same trust model as the decoder JS itself); `<script>` does not execute.
+
+### Subtree plugins (group / gateway cards)
+
+Set `scope: "subtree"` to render a card for a *branch* topic — one that groups others and
+carries no message of its own (e.g. a gateway ID). Instead of one payload, `decode(ctx)`
+receives a snapshot of every descendant topic's latest value, so the card is stable regardless
+of the order messages arrived in:
+
+```js
+export default {
+  name: "Gateway overview",
+  scope: "subtree",
+  topic: "gg/gw/+",               // matches the gateway (branch) topic
+  decode(ctx) {
+    // ctx.topic, ctx.keys(), and per relative-path accessors:
+    //   ctx.get(rel) text · ctx.num(rel) number · ctx.json(rel) parsed JSON
+    //   ctx.bytes(rel) Uint8Array · ctx.ts(rel) last-update millis
+    return {
+      summary: `Gateway ${ctx.topic.split("/").pop()}`,
+      fields: [
+        { label: "battery", value: ctx.num("status/battery"), hint: "V" },
+        { label: "rssi",    value: ctx.num("status/rssi"),    hint: "dBm" },
+      ],
+    };
+  },
+};
+```
+
+Subtree plugins are tagged `subtree` in the manager and return the same `{summary, fields}`
+card shape as normal plugins (or their own `html`). Since a plugin file has a single `scope`, a
+gateway card is a *companion* to a per-message decoder, not part of it.
+
+A worked example combining both — a subtree plugin that renders its own themed HTML — is in
+[`examples/plugins/solar-site.js`](examples/plugins/solar-site.js). Copy it into the plugins
+folder (or use the manager's **Import**) and adapt the topic / child paths to your tree.
 
 ## Architecture
 

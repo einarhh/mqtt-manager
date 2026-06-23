@@ -15,6 +15,10 @@ Semantic Versioning (https://semver.org).
 - Stop the detail panel from twitching as messages stream in
 - Show the active connection's name in the header and drop the duplicate counter
 - Drag to resize the connection, topic, and detail columns (sizes are remembered)
+- Let decoder plugins render their own HTML to take full control of the detail panel
+- Add subtree decoder plugins that summarize a whole topic group into a single card
+- Import and export decoder plugins as files from the plugin manager
+- Reload plugins automatically when their files change on disk, with a manual Reload button too
 
 ## [1.3.0] - 2026-06-15
 

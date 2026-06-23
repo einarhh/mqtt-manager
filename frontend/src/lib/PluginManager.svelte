@@ -9,6 +9,7 @@
     setPluginEnabled,
     importPlugin,
     exportPlugin,
+    reload,
   } from "./plugins";
   import type { PluginInfo } from "./plugins";
   import Icon from "./Icon.svelte";
@@ -29,17 +30,39 @@ export default {
       fields: [
         { label: "length", value: ctx.bytes.length, hint: "bytes" },
       ],
+      // Or take full control of the panel with your own markup:
+      // html: \`<b style="color:var(--accent)">\${ctx.bytes.length} bytes</b>\`,
     };
   },
 };
 `;
 
   let draft: PluginInfo | null = null;
+  // The on-disk source the open draft was loaded with, so we can tell whether
+  // the user has typed local edits before adopting an external (disk) change.
+  let baseline = "";
   let error = "";
+
+  function setDraft(p: PluginInfo | null) {
+    draft = p ? { ...p } : null;
+    baseline = p ? p.source : "";
+  }
+
+  // When plugins are re-read from disk (e.g. the file-watcher fired), adopt the
+  // new version into the open editor — but only if the user hasn't made local
+  // edits to it, so in-progress manager edits are never clobbered.
+  $: syncDraft($pluginList);
+  function syncDraft(list: PluginInfo[]) {
+    if (!draft?.id) return;
+    const fresh = list.find((p) => p.id === draft.id);
+    if (fresh && draft.source === baseline && fresh.source !== baseline) {
+      setDraft(fresh);
+    }
+  }
 
   function newPlugin() {
     error = "";
-    draft = {
+    setDraft({
       id: "",
       name: "New decoder",
       filename: "",
@@ -47,13 +70,14 @@ export default {
       order: 0,
       source: TEMPLATE,
       topic: "#",
+      scope: "topic",
       loadError: "",
-    };
+    });
   }
 
   function editPlugin(p: PluginInfo) {
     error = "";
-    draft = { ...p };
+    setDraft(p);
   }
 
   async function save() {
@@ -61,10 +85,9 @@ export default {
     error = "";
     try {
       const saved = await savePlugin(draft);
-      draft = { ...saved };
       // Pull the post-load status (parsed topic / compile error) back in.
       const fresh = $pluginList.find((p) => p.id === saved.id);
-      if (fresh) draft = { ...fresh };
+      setDraft(fresh ?? saved);
     } catch (e) {
       error = String(e);
     }
@@ -72,12 +95,12 @@ export default {
 
   async function remove() {
     if (!draft?.id) {
-      draft = null;
+      setDraft(null);
       return;
     }
     try {
       await deletePlugin(draft.id);
-      draft = null;
+      setDraft(null);
     } catch (e) {
       error = String(e);
     }
@@ -99,7 +122,7 @@ export default {
       const p = await importPlugin();
       if (p) {
         const fresh = $pluginList.find((x) => x.id === p.id);
-        draft = { ...(fresh ?? p) };
+        setDraft(fresh ?? p);
       }
     } catch (e) {
       error = String(e);
@@ -111,6 +134,22 @@ export default {
     error = "";
     try {
       await exportPlugin(draft.id);
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  // Re-read plugins from disk (no write) so edits made to the .js files outside
+  // the app are picked up. Refreshes the open editor to the on-disk version so a
+  // later Save can't clobber those edits with a stale buffer.
+  async function reloadFromDisk() {
+    error = "";
+    try {
+      await reload();
+      if (draft?.id) {
+        const fresh = $pluginList.find((x) => x.id === draft.id);
+        setDraft(fresh ?? null);
+      }
     } catch (e) {
       error = String(e);
     }
@@ -133,6 +172,10 @@ export default {
         <div class="list-head">
           <span>Installed</span>
           <div class="head-actions">
+            <button class="link" on:click={reloadFromDisk} title="Re-read plugin files from disk">
+              <Icon name="refresh" size={13} />
+              Reload
+            </button>
             <button class="link" on:click={doImport}>Import</button>
             <button class="link" on:click={newPlugin}>
               <Icon name="plus" size={13} />
@@ -153,7 +196,10 @@ export default {
                   on:change={(e) => toggle(p, e)}
                 />
                 <div class="pmeta">
-                  <span class="pname">{p.name}</span>
+                  <span class="pname">
+                    {p.name}
+                    {#if p.scope === "subtree"}<span class="tag">subtree</span>{/if}
+                  </span>
                   <span class="ptopic">
                     {p.topic}
                     {#if p.enabled && $selectedPath && topicMatch(p.topic, $selectedPath)}
@@ -298,6 +344,17 @@ export default {
   .pname {
     font-weight: 600;
     font-size: 13px;
+  }
+  .tag {
+    font-weight: 400;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0 5px;
+    margin-left: 4px;
   }
   .ptopic {
     font-size: 11px;

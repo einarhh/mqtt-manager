@@ -22,6 +22,7 @@ import (
 const (
 	eventMessages = "mqtt:messages"
 	eventStatus   = "mqtt:status"
+	eventPlugins  = "plugins:changed"
 )
 
 // ConnMessages is a batch of received messages tagged with its connection ID.
@@ -40,11 +41,12 @@ type ConnState struct {
 
 // App is the Wails application backend bound to the frontend.
 type App struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	clients map[string]*mqtt.Client // keyed by profile ID (one connection per profile)
-	store   *profiles.Store
-	plugins *plugins.Store
+	ctx          context.Context
+	mu           sync.Mutex
+	clients      map[string]*mqtt.Client // keyed by profile ID (one connection per profile)
+	store        *profiles.Store
+	plugins      *plugins.Store
+	pluginsWatch func() // stops the plugin-directory watcher
 }
 
 // NewApp creates a new App application struct.
@@ -85,10 +87,24 @@ func (a *App) startup(ctx context.Context) {
 		return
 	}
 	a.plugins = pluginStore
+
+	// Watch the plugins directory so edits made outside the app auto-reload.
+	stop, err := pluginStore.Watch(func() {
+		wruntime.EventsEmit(a.ctx, eventPlugins)
+	})
+	if err != nil {
+		wruntime.LogError(a.ctx, "plugin watcher: "+err.Error())
+	} else {
+		a.pluginsWatch = stop
+	}
 }
 
 // shutdown tears down all MQTT connections cleanly.
 func (a *App) shutdown(_ context.Context) {
+	if a.pluginsWatch != nil {
+		a.pluginsWatch()
+	}
+
 	a.mu.Lock()
 	clients := make([]*mqtt.Client, 0, len(a.clients))
 	for _, c := range a.clients {

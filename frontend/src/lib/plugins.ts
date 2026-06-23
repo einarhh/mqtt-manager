@@ -25,6 +25,8 @@ export interface DecodeField {
 }
 
 // What a plugin's decode() returns, annotated with which plugin produced it.
+// `html` is an escape hatch: when present it is rendered verbatim (themed via the
+// app's CSS variables) and takes precedence over the structured fields/json/text.
 export interface DecodeResult {
   pluginId: string;
   pluginName: string;
@@ -32,6 +34,7 @@ export interface DecodeResult {
   fields?: DecodeField[];
   json?: unknown;
   text?: string;
+  html?: string;
   error?: string;
 }
 
@@ -44,6 +47,7 @@ export interface PluginInfo {
   order: number;
   source: string;
   topic: string; // match filter parsed from the compiled module ("#" if unknown)
+  scope: string; // "topic" (per-message) or "subtree" (aggregate over descendants)
   loadError: string; // compile/load error, empty when healthy
 }
 
@@ -117,6 +121,7 @@ async function loadIntoWorker(records: PluginInfo[]): Promise<void> {
       if (!m) continue;
       if (m.ok) {
         r.topic = m.topic || "#";
+        r.scope = m.scope === "subtree" ? "subtree" : "topic";
         r.loadError = "";
       } else {
         r.loadError = m.error || "failed to load";
@@ -145,6 +150,7 @@ export async function reload(): Promise<void> {
       order: p.order,
       source: p.source,
       topic: "#",
+      scope: "topic",
       loadError: "",
     }));
   } catch {
@@ -161,35 +167,22 @@ function disablePlugin(id: string, reason: string): void {
   );
 }
 
-// decodeRaw runs the first enabled plugin whose topic filter (and optional
-// match() predicate) claims a base64 payload on `topic`. `cacheKey` should be
-// unique per (payload, plugin set). Returns null when no plugin applies, or a
-// DecodeResult (which may carry an `error`).
-export async function decodeRaw(
-  topic: string,
-  rawB64: string | null,
+// runCandidates sends `payload` to each candidate plugin in turn and returns the
+// first that claims it (or null). Shared by per-message and subtree decoding.
+async function runCandidates(
+  candidates: PluginInfo[],
+  payload: Record<string, unknown>,
   cacheKey: string,
-  ts: number | null = null,
 ): Promise<DecodeResult | null> {
-  if (rawB64 === null) return null;
   if (cache.has(cacheKey)) return cache.get(cacheKey) ?? null;
-
-  const candidates = get(pluginList).filter(
-    (p) => p.enabled && !p.loadError && topicMatch(p.topic, topic),
-  );
   if (!candidates.length) {
     cache.set(cacheKey, null);
     return null;
   }
 
-  const hex = bytesToHex(b64ToBytes(rawB64));
   let result: DecodeResult | null = null;
-
   for (const c of candidates) {
-    const resp = await send(
-      { type: "decode", pluginId: c.id, topic, hex, ts },
-      DECODE_TIMEOUT_MS,
-    );
+    const resp = await send({ type: "decode", pluginId: c.id, ...payload }, DECODE_TIMEOUT_MS);
 
     if (resp?.timedOut) {
       // The plugin hung; disable it for this session and rebuild the worker.
@@ -211,6 +204,7 @@ export async function decodeRaw(
       fields: Array.isArray(r.fields) ? r.fields : undefined,
       json: r.json,
       text: typeof r.text === "string" ? r.text : undefined,
+      html: typeof r.html === "string" ? r.html : undefined,
       error: typeof r.error === "string" ? r.error : undefined,
     };
     break;
@@ -220,10 +214,54 @@ export async function decodeRaw(
   return result;
 }
 
+// decodeRaw runs the first enabled per-message plugin whose topic filter (and
+// optional match() predicate) claims a base64 payload on `topic`. `cacheKey`
+// should be unique per (payload, plugin set). Returns null when no plugin
+// applies, or a DecodeResult (which may carry an `error`).
+export async function decodeRaw(
+  topic: string,
+  rawB64: string | null,
+  cacheKey: string,
+  ts: number | null = null,
+): Promise<DecodeResult | null> {
+  if (rawB64 === null) return null;
+  if (cache.has(cacheKey)) return cache.get(cacheKey) ?? null;
+  const candidates = get(pluginList).filter(
+    (p) => p.enabled && !p.loadError && p.scope !== "subtree" && topicMatch(p.topic, topic),
+  );
+  const hex = candidates.length ? bytesToHex(b64ToBytes(rawB64)) : "";
+  return runCandidates(candidates, { topic, hex, ts }, cacheKey);
+}
+
 // decodeNode decodes a tree node's latest payload.
 export function decodeNode(node: TreeNode): Promise<DecodeResult | null> {
   if (!node || node.raw === null) return Promise.resolve(null);
   return decodeRaw(node.path, node.raw, `${node.path}:${node.count}`, node.ts);
+}
+
+// decodeSubtree runs the first enabled subtree plugin whose topic filter claims
+// `topic`, giving it a snapshot of descendant topics' latest values. `children`
+// maps a relative topic path to its latest { text, raw (base64), ts }.
+export async function decodeSubtree(
+  topic: string,
+  children: Record<string, { text: string | null; raw: string | null; ts: number | null }>,
+  cacheKey: string,
+): Promise<DecodeResult | null> {
+  if (cache.has(cacheKey)) return cache.get(cacheKey) ?? null;
+  const candidates = get(pluginList).filter(
+    (p) => p.enabled && !p.loadError && p.scope === "subtree" && topicMatch(p.topic, topic),
+  );
+  if (!candidates.length) {
+    cache.set(cacheKey, null);
+    return null;
+  }
+  // Convert each child's base64 payload to hex for the worker.
+  const payload: Record<string, { text: string | null; hex: string; ts: number | null }> = {};
+  for (const k in children) {
+    const v = children[k];
+    payload[k] = { text: v.text, hex: v.raw ? bytesToHex(b64ToBytes(v.raw)) : "", ts: v.ts };
+  }
+  return runCandidates(candidates, { topic, children: payload }, cacheKey);
 }
 
 // --- manager actions ------------------------------------------------------

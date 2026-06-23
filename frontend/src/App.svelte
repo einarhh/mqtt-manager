@@ -110,10 +110,13 @@
     // while the Go backend keeps running) so each batch is ingested exactly once.
     EventsOff("mqtt:messages");
     EventsOff("mqtt:status");
+    EventsOff("plugins:changed");
     EventsOn("mqtt:messages", (p: MessagesEvent) => ingest(p.id, p.messages));
     EventsOn("mqtt:status", (p: StatusEvent) =>
       setStatus(p.id, { status: p.status, detail: p.detail }),
     );
+    // The Go backend watches the plugins dir; re-read on any on-disk change.
+    EventsOn("plugins:changed", () => reloadPlugins());
     Version().then((v) => (appVersion = v));
     // Status is only pushed on transitions, so rebuild the live connections on load
     // (a reload would otherwise lose the connection list while messages still flow).
@@ -130,6 +133,7 @@
   onDestroy(() => {
     EventsOff("mqtt:messages");
     EventsOff("mqtt:status");
+    EventsOff("plugins:changed");
   });
 </script>
 

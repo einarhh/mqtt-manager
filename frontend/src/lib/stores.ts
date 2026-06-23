@@ -254,3 +254,29 @@ export function findNode(path: string | null): TreeNode | null {
   }
   return node;
 }
+
+// The latest value of one descendant topic, as fed to subtree decoder plugins.
+export interface SubtreeValue {
+  text: string | null;
+  raw: string | null; // base64 payload
+  ts: number | null;
+}
+
+// collectSubtree returns the latest value of every descendant of `node` that
+// has received a message, keyed by topic path relative to `node`. Used to give
+// subtree plugins (e.g. a gateway card) a stable snapshot independent of the
+// order topics happened to arrive in.
+export function collectSubtree(node: TreeNode): Record<string, SubtreeValue> {
+  const out: Record<string, SubtreeValue> = {};
+  const prefixLen = node.path ? node.path.length + 1 : 0;
+  const walk = (n: TreeNode): void => {
+    for (const child of n.children.values()) {
+      if (child.text !== null) {
+        out[child.path.slice(prefixLen)] = { text: child.text, raw: child.raw, ts: child.ts };
+      }
+      walk(child);
+    }
+  };
+  walk(node);
+  return out;
+}

@@ -11,24 +11,18 @@
 // main thread (an infinite loop can't be interrupted any other way) without
 // freezing the app.
 
-interface Ctx {
-  topic: string;
-  bytes: Uint8Array;
-  hex: string;
-  text: string;
-  ts: number | null;
-}
-
 interface CompiledPlugin {
   id: string;
   name: string;
   topic: string;
   hasMatch: boolean;
+  scope: string; // "topic" (per-message) or "subtree" (aggregate over descendants)
   mod: {
     name?: string;
     topic?: string;
-    match?: (ctx: Ctx) => unknown;
-    decode: (ctx: Ctx) => unknown;
+    scope?: string;
+    match?: (ctx: any) => unknown;
+    decode: (ctx: any) => unknown;
   };
 }
 
@@ -83,14 +77,16 @@ self.onmessage = (e: MessageEvent) => {
       try {
         const mod = compile(p.source);
         const topic = typeof mod.topic === "string" && mod.topic ? mod.topic : "#";
+        const scope = mod.scope === "subtree" ? "subtree" : "topic";
         compiled.set(p.id, {
           id: p.id,
           name: mod.name || p.name,
           topic,
+          scope,
           hasMatch: typeof mod.match === "function",
           mod,
         });
-        metas.push({ id: p.id, ok: true, name: mod.name || p.name, topic });
+        metas.push({ id: p.id, ok: true, name: mod.name || p.name, topic, scope });
       } catch (err) {
         metas.push({ id: p.id, ok: false, error: errMessage(err) });
       }
@@ -105,14 +101,43 @@ self.onmessage = (e: MessageEvent) => {
       (self as unknown as Worker).postMessage({ type: "decoded", reqId: msg.reqId, status: "nomatch" });
       return;
     }
-    const bytes = hexToBytes(msg.hex);
-    const ctx: Ctx = {
-      topic: msg.topic,
-      bytes,
-      hex: msg.hex,
-      text: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
-      ts: msg.ts ?? null,
-    };
+    let ctx: any;
+    if (msg.children) {
+      // Subtree scope: ctx exposes descendant topics keyed by relative path.
+      const ch = msg.children as Record<string, { text: string | null; hex: string; ts: number | null }>;
+      ctx = {
+        topic: msg.topic,
+        children: ch,
+        keys: () => Object.keys(ch),
+        get: (k: string) => (ch[k] ? ch[k].text : null),
+        num: (k: string) => {
+          const v = ch[k] ? ch[k].text : null;
+          if (v === null || v === undefined) return null;
+          const n = parseFloat(v);
+          return Number.isFinite(n) ? n : null;
+        },
+        json: (k: string) => {
+          try {
+            const v = ch[k] ? ch[k].text : null;
+            return v === null || v === undefined ? null : JSON.parse(v);
+          } catch {
+            return null;
+          }
+        },
+        bytes: (k: string) => (ch[k] && ch[k].hex ? hexToBytes(ch[k].hex) : null),
+        text: (k: string) => (ch[k] ? ch[k].text : null),
+        ts: (k: string) => (ch[k] ? ch[k].ts : null),
+      };
+    } else {
+      const bytes = hexToBytes(msg.hex);
+      ctx = {
+        topic: msg.topic,
+        bytes,
+        hex: msg.hex,
+        text: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
+        ts: msg.ts ?? null,
+      };
+    }
     try {
       if (c.hasMatch && !c.mod.match!(ctx)) {
         (self as unknown as Worker).postMessage({ type: "decoded", reqId: msg.reqId, status: "nomatch" });

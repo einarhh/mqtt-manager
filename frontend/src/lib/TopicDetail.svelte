@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { tree, selectedPath, findNode } from "./stores";
+  import { tree, selectedPath, findNode, collectSubtree } from "./stores";
   import type { TreeNode, HistoryEntry } from "./stores";
   import { prettyJSON, formatTime, parseCoord, parseNumeric, mapURL, mapEmbedURL } from "./util";
   import { BrowserOpenURL, ClipboardSetText } from "../../wailsjs/runtime/runtime";
-  import { decodeRaw, pluginList } from "./plugins";
+  import { decodeRaw, decodeSubtree, pluginList } from "./plugins";
   import type { DecodeResult } from "./plugins";
   import Icon from "./Icon.svelte";
   import Chart from "./Chart.svelte";
+  import DecodedBody from "./DecodedBody.svelte";
 
   // Re-resolve whenever the tree updates or the selection changes.
   $: node = ($tree, findNode($selectedPath));
@@ -97,14 +98,35 @@
     return viewing ? viewing === h : i === 0;
   }
 
+  // Aggregate "card" for a selected node, built by subtree plugins from the
+  // latest values of its descendant topics (e.g. a gateway overview). Re-runs on
+  // selection, on any message under the node, and when the plugin set changes.
+  let card: DecodeResult | null = null;
+  let cardSeq = 0;
+  $: refreshCard(node, $tree, $pluginList);
+
+  async function refreshCard(n: TreeNode | null, _t: unknown, _p: unknown): Promise<void> {
+    const seq = ++cardSeq;
+    let result: DecodeResult | null = null;
+    if (n) {
+      const children = collectSubtree(n);
+      const keys = Object.keys(children);
+      if (keys.length) {
+        // Version the cache by child count + newest descendant timestamp so it
+        // only recomputes when the subtree actually changes.
+        let maxTs = 0;
+        for (const k of keys) {
+          const t = children[k].ts;
+          if (t && t > maxTs) maxTs = t;
+        }
+        result = await decodeSubtree(n.path, children, `${n.path}:sub:${keys.length}:${maxTs}`);
+      }
+    }
+    if (seq === cardSeq) card = result;
+  }
+
   // Show the plugin view unless it errored or the user toggled to raw.
   $: usePlugin = !!decoded && !decoded.error && !showRaw;
-
-  function fmtValue(v: unknown): string {
-    if (v === null || v === undefined) return "";
-    if (typeof v === "object") return JSON.stringify(v);
-    return String(v);
-  }
 
   // Copy the current message's payload (the raw text on the wire) to the
   // clipboard, with brief "Copied" feedback that clears when the shown sample changes.
@@ -211,7 +233,28 @@
     {/if}
 
     {#if node.text === null}
-      <div class="empty small">This topic groups others and carries no message of its own.</div>
+      {#if card?.error}
+        <div class="plugin-error">
+          <Icon name="warning" size={13} />
+          {card.pluginName}: {card.error}
+        </div>
+      {/if}
+      {#if card && !card.error}
+        <div class="value-head">
+          <span class="section-title">{card.summary || "Overview"}</span>
+          <span class="chip">
+            <Icon name="code" size={12} />
+            {card.pluginName}
+          </span>
+        </div>
+        <div class="content">
+          <div class="decoded">
+            <DecodedBody result={card} />
+          </div>
+        </div>
+      {:else}
+        <div class="empty small">This topic groups others and carries no message of its own.</div>
+      {/if}
     {:else}
       {#if viewing}
         <div class="viewing">
@@ -244,24 +287,7 @@
           {#if usePlugin && decoded}
             <div class="decoded">
               {#if decoded.summary}<div class="summary">{decoded.summary}</div>{/if}
-              {#if decoded.fields && decoded.fields.length}
-                <table class="fields">
-                  <tbody>
-                    {#each decoded.fields as f}
-                      <tr>
-                        <td class="flabel">{f.label}</td>
-                        <td class="fvalue">
-                          {fmtValue(f.value)}{#if f.hint}<span class="fhint"> {f.hint}</span>{/if}
-                        </td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              {/if}
-              {#if decoded.json !== undefined && decoded.json !== null}
-                <pre class="value sub">{JSON.stringify(decoded.json, null, 2)}</pre>
-              {/if}
-              {#if decoded.text}<pre class="value sub">{decoded.text}</pre>{/if}
+              <DecodedBody result={decoded} />
             </div>
           {:else}
             <pre class="value">{parsed?.pretty}</pre>
@@ -442,29 +468,6 @@
     color: var(--text);
     margin-bottom: 8px;
   }
-  .fields {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-  .fields td {
-    padding: 2px 8px 2px 0;
-    vertical-align: top;
-    border-bottom: 1px solid var(--border);
-  }
-  .flabel {
-    color: var(--text-dim);
-    white-space: nowrap;
-    width: 1%;
-  }
-  .fvalue {
-    color: var(--text);
-    word-break: break-word;
-  }
-  .fhint {
-    color: var(--text-dim);
-  }
   .value {
     background: var(--bg-inset);
     border: 1px solid var(--border);
@@ -477,10 +480,6 @@
     word-break: break-word;
     margin: 0;
     animation: flash 0.6s ease-out;
-  }
-  .value.sub {
-    margin: 8px 0 0;
-    animation: none;
   }
   @keyframes flash {
     from {

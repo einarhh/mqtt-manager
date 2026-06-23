@@ -41,6 +41,9 @@
     // A↓ Z — alphabetical sort: a down arrow beside descending-length bars.
     "sort-alpha":
       '<path d="M6 4v16"/><polyline points="3 17 6 20 9 17"/><line x1="13" y1="6" x2="21" y2="6"/><line x1="13" y1="12" x2="18" y2="12"/><line x1="13" y1="18" x2="15" y2="18"/>',
+    // two circular arrows — reload plugins from disk
+    refresh:
+      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   };
 </script>
 
