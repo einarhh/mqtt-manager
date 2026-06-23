@@ -21,6 +21,7 @@ export interface TreeNode {
   retained: boolean;
   ts: number | null; // last update (unix millis)
   count: number; // messages received at this exact topic
+  activity: number; // bumped for every message passing through (this node or any descendant); drives the "new message" pulse
   history: HistoryEntry[]; // bounded ring buffer, newest last
 }
 
@@ -72,6 +73,7 @@ function makeNode(name: string, path: string): TreeNode {
     retained: false,
     ts: null,
     count: 0,
+    activity: 0,
     history: [],
   };
 }
@@ -194,6 +196,7 @@ export function ingest(id: string, batch: IncomingMessage[]): void {
         child = makeNode(seg, path);
         node.children.set(seg, child);
       }
+      child.activity++; // light up this node and, by walking the path, every ancestor
       node = child;
     }
     const wasEmpty = node.ts === null;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { TreeNode } from "./stores";
   import { selectedPath, sortMode, sortNodes } from "./stores";
-  import { preview } from "./util";
+  import { preview, flashOn } from "./util";
   import Self from "./TreeNode.svelte";
   import Icon from "./Icon.svelte";
 
@@ -54,6 +54,11 @@
       on:click={onRowClick}
     >
       <span
+        class="pulse"
+        aria-hidden="true"
+        use:flashOn={{ trigger: node.activity, animation: "tree-pulse 0.9s ease-out forwards" }}
+      ></span>
+      <span
         class="twisty"
         class:hidden={node.children.size === 0}
         class:open={expanded || !!lowerFilter}
@@ -65,11 +70,13 @@
         <span class="badge">{node.children.size}</span>
       {/if}
       {#if node.text !== null}
-        {#key node.count}
-          <span class="value" class:retained={node.retained}>
-            {preview(node.text)}
-          </span>
-        {/key}
+        <span
+          class="value"
+          class:retained={node.retained}
+          use:flashOn={{ trigger: node.count, animation: "tree-value-flash 0.6s ease-out" }}
+        >
+          {preview(node.text)}
+        </span>
       {/if}
     </div>
     {#if showChildren}
@@ -82,6 +89,7 @@
 
 <style>
   .row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -89,6 +97,36 @@
     cursor: pointer;
     white-space: nowrap;
     border-radius: 4px;
+  }
+  /* A short accent pulse in the indent gutter when a message lands on this topic
+     (or, via the propagated activity counter, anywhere beneath it). Absolutely
+     positioned so it never shifts the row and fades out on its own. */
+  .pulse {
+    position: absolute;
+    left: 1px;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 50%;
+    background: var(--accent);
+    pointer-events: none;
+    /* Always mounted but idle until flashOn replays the `pulse` animation, so the
+       node never has to be remounted (which would churn the scroll bar). */
+    opacity: 0;
+  }
+  /* Global name so the inline animation set by the flashOn action resolves —
+     Svelte would otherwise scope (rename) these keyframes and the inline
+     `animation: tree-pulse` reference wouldn't match. */
+  @keyframes -global-tree-pulse {
+    from {
+      opacity: 0.9;
+      transform: scale(1.5);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1);
+    }
   }
   .row:hover {
     background: var(--bg-hover);
@@ -128,12 +166,13 @@
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
-    animation: flash 0.6s ease-out;
+    /* Flash is replayed in place by the flashOn action (see the pulse note) so the
+       value never remounts on a new message. */
   }
   .value.retained {
     color: var(--warn);
   }
-  @keyframes flash {
+  @keyframes -global-tree-value-flash {
     from {
       background: var(--accent-soft);
     }

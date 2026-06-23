@@ -2,7 +2,7 @@
   import { tree, selectedPath, findNode } from "./stores";
   import type { TreeNode, HistoryEntry } from "./stores";
   import { prettyJSON, formatTime, parseCoord, parseNumeric, mapURL, mapEmbedURL } from "./util";
-  import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
+  import { BrowserOpenURL, ClipboardSetText } from "../../wailsjs/runtime/runtime";
   import { decodeRaw, pluginList } from "./plugins";
   import type { DecodeResult } from "./plugins";
   import Icon from "./Icon.svelte";
@@ -104,6 +104,19 @@
     if (v === null || v === undefined) return "";
     if (typeof v === "object") return JSON.stringify(v);
     return String(v);
+  }
+
+  // Copy the current message's payload (the raw text on the wire) to the
+  // clipboard, with brief "Copied" feedback that clears when the shown sample changes.
+  let copied = false;
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  $: if (sample) copied = false;
+  async function copyValue(): Promise<void> {
+    if (!sample || sample.text === null) return;
+    await ClipboardSetText(sample.text);
+    copied = true;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => (copied = false), 1200);
   }
 </script>
 
@@ -213,6 +226,19 @@
         </div>
       {/if}
 
+      <div class="value-head">
+        <span class="section-title">Value</span>
+        <button
+          class="copy-btn"
+          class:copied
+          title="Copy the current value to the clipboard"
+          on:click={copyValue}
+        >
+          <Icon name={copied ? "check" : "copy"} size={13} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
       <div class="content">
         {#key (viewing ? "h" + sample?.ts : "c" + node.count) + ":" + usePlugin}
           {#if usePlugin && decoded}
@@ -245,7 +271,7 @@
 
       <div class="section-title">History</div>
       <div class="history">
-        {#each history as h, i (h.ts + ":" + i)}
+        {#each history as h, i (h)}
           <div
             class="hrow clickable"
             class:active={isActive(h, i)}
@@ -290,6 +316,9 @@
     color: var(--text-dim);
     background: var(--bg-hover);
     border-radius: 8px;
+    /* Transparent border keeps plain chips the same height as the bordered toggle
+       chips, so the meta row doesn't jolt when a chip appears/disappears. */
+    border: 1px solid transparent;
     padding: 2px 8px;
   }
   .chip.warn {
@@ -298,30 +327,17 @@
   .chip.ok {
     color: var(--ok);
   }
-  .chip.plugin {
-    border: 1px solid var(--border);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .chip.plugin.active {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-  .chip.map {
-    border: 1px solid var(--border);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .chip.map:hover,
-  .chip.map.active {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
+  .chip.plugin,
+  .chip.map,
   .chip.chart-chip {
-    border: 1px solid var(--border);
+    border-color: var(--border);
     cursor: pointer;
     font-family: inherit;
   }
+  /* plugin highlights only when active; map/chart also highlight on hover. */
+  .chip.plugin.active,
+  .chip.map:hover,
+  .chip.map.active,
   .chip.chart-chip:hover,
   .chip.chart-chip.active {
     color: var(--accent);
@@ -408,11 +424,14 @@
     color: var(--accent);
     margin-bottom: 8px;
   }
-  /* The decoded/raw value region gets the main, scrollable area. */
+  /* The decoded/raw value region gets the main, scrollable area. overflow-y is
+     `scroll` (not auto) so the classic scrollbar stays put rather than
+     auto-hiding or reflowing as each message changes the payload height. */
   .content {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow-y: scroll;
+    overflow-x: auto;
     margin: 0 0 10px;
   }
   .decoded {
@@ -478,10 +497,38 @@
     color: var(--text-dim);
     margin-bottom: 6px;
   }
+  .value-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .value-head .section-title {
+    margin-bottom: 0;
+  }
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+  }
+  .copy-btn:hover {
+    color: var(--accent);
+  }
+  .copy-btn.copied {
+    color: var(--ok);
+  }
   .history {
     flex: 0 0 auto;
     max-height: 34%;
-    overflow: auto;
+    overflow-y: scroll;
+    overflow-x: auto;
     border: 1px solid var(--border);
     border-radius: 6px;
   }

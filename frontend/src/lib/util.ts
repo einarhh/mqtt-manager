@@ -1,3 +1,28 @@
+// Svelte action that replays a CSS animation each time `trigger` changes,
+// keeping the element mounted. A `{#key}` block would remount it on every
+// message instead, and that DOM churn flickers the surrounding scroll bar.
+export function flashOn(
+  node: HTMLElement,
+  params: { trigger: number; animation: string },
+) {
+  let prev = params.trigger;
+  const play = () => {
+    node.style.animation = "none";
+    void node.offsetWidth; // force reflow so the animation restarts
+    node.style.animation = params.animation;
+  };
+  // Play once on mount for an already-active node (e.g. a row that just appeared).
+  if (params.trigger > 0) play();
+  return {
+    update(p: { trigger: number; animation: string }) {
+      if (p.trigger !== prev) {
+        prev = p.trigger;
+        play();
+      }
+    },
+  };
+}
+
 // Decode a base64 string (as sent by the Go backend) into raw bytes.
 export function b64ToBytes(b64: string): Uint8Array {
   try {
@@ -61,11 +86,30 @@ export function prettyJSON(text: string): { pretty: string; isJSON: boolean } {
   }
 }
 
-// Format a unix-millis timestamp as HH:MM:SS.mmm in local time.
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+// Clock with millisecond precision. A date prefix is added only when the
+// timestamp isn't from today (and the year too when it differs), so same-day
+// history stays compact while older messages are still unambiguous.
 export function formatTime(ts: number): string {
   const d = new Date(ts);
   const t = d.toLocaleTimeString(undefined, { hour12: false });
-  return `${t}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+  const clock = `${t}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+  const now = new Date();
+  if (sameDay(d, now)) return clock;
+  const date = d.toLocaleDateString(
+    undefined,
+    d.getFullYear() === now.getFullYear()
+      ? { month: "short", day: "numeric" }
+      : { year: "numeric", month: "short", day: "numeric" },
+  );
+  return `${date} ${clock}`;
 }
 
 export type Coord = { lat: number; lon: number };

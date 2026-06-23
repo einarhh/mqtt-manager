@@ -41,15 +41,22 @@
     >
       <Icon name="sort-alpha" size={15} />
     </button>
-    <button class="ghost" title="Clear all received topics" on:click={clearTree}>
-      Clear
-    </button>
   </div>
 
   <div class="stats">
     <span>{$totalTopics} topics</span>
     <span>·</span>
     <span>{$totalMessages} messages</span>
+    <button
+      class="clear-btn"
+      title="Clear all received topics"
+      aria-label="Clear all received topics"
+      disabled={$totalTopics === 0}
+      on:click={clearTree}
+    >
+      <Icon name="trash" size={13} />
+      <span>Clear</span>
+    </button>
   </div>
 
   <div class="tree-scroll">
@@ -102,15 +109,43 @@
   }
   .stats {
     display: flex;
+    align-items: center;
     gap: 6px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--text-dim);
     border-bottom: 1px solid var(--border);
   }
+  /* Pushed to the right so the destructive "clear received data" action sits
+     with the counts it affects, well clear of the filter input. */
+  .clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    padding: 2px 4px;
+    font-size: 12px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .clear-btn:hover:not(:disabled) {
+    color: var(--err);
+    background: var(--bg-hover);
+  }
+  .clear-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
   .tree-scroll {
     flex: 1;
-    overflow: auto;
+    /* Always show the vertical scrollbar (classic, via the styled
+       ::-webkit-scrollbar) so it can't auto-hide or flicker in/out as messages
+       stream in. overflow-x stays auto for the odd over-long row. */
+    overflow-y: scroll;
+    overflow-x: auto;
     padding: 6px 4px;
   }
   .empty {
