@@ -6,6 +6,16 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [Unreleased]
+
+- Move the Clear button away from the filter and give it a trash icon so it's no longer mistaken for clearing the filter
+- Pulse a small dot on topics (and their parents) when a new message arrives
+- Add a Copy button to the detail panel for copying a topic's current value
+- Show the date on history timestamps when a message isn't from today
+- Stop the detail panel from twitching as messages stream in
+- Show the active connection's name in the header and drop the duplicate counter
+- Drag to resize the connection, topic, and detail columns (sizes are remembered)
+
 ## [1.3.0] - 2026-06-15
 
 - Chart numeric topic values over time in the topic detail panel, MQTT-Explorer-style
