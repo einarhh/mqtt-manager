@@ -6,7 +6,7 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
-## [Unreleased]
+## [1.4.0] - 2026-06-23
 
 - Move the Clear button away from the filter and give it a trash icon so it's no longer mistaken for clearing the filter
 - Pulse a small dot on topics (and their parents) when a new message arrives
