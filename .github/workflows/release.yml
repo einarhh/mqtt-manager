@@ -57,7 +57,12 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
 
       - name: Install NSIS (for the installer)
-        run: choco install nsis -y
+        shell: bash
+        run: |
+          choco install nsis -y
+          # choco updates the machine PATH, but the next step's shell won't see
+          # it unless we export the install dir for subsequent steps.
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
 
       - name: Build .exe and NSIS installer
         shell: bash
