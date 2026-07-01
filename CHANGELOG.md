@@ -6,6 +6,10 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [1.4.1] - 2026-07-01
+
+- Add GitHub Actions release workflow for macOS and Windows builds
+
 ## [1.4.0] - 2026-06-23
 
 - Move the Clear button away from the filter and give it a trash icon so it's no longer mistaken for clearing the filter
