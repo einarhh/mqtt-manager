@@ -6,6 +6,10 @@ Semantic Versioning (https://semver.org).
 
 <!-- new-release -->
 
+## [1.4.2] - 2026-07-01
+
+- Fix Windows CI: expose NSIS on PATH for the build step (#2)
+
 ## [1.4.1] - 2026-07-01
 
 - Add GitHub Actions release workflow for macOS and Windows builds
