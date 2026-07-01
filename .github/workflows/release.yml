@@ -1,0 +1,96 @@
+name: Release
+
+# Builds signed-only-by-git tags. Pushing a `v*` tag (as `make release` does)
+# builds the macOS universal bundle and the Windows binaries on native runners,
+# then publishes a GitHub Release with the artifacts attached.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  macos:
+    name: Build macOS (universal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags needed for `git describe` version injection
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Build universal .app and zip it
+        run: make dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: build/bin/*.zip
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows (amd64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Install NSIS (for the installer)
+        run: choco install nsis -y
+
+      - name: Build .exe and NSIS installer
+        shell: bash
+        run: |
+          VERSION="$(git describe --tags --always --dirty)"
+          wails build -platform windows/amd64 -nsis -ldflags "-X main.version=${VERSION}"
+          # Give the artifacts versioned, OS-tagged names for the release.
+          mv "build/bin/mqtt-manager.exe" "build/bin/mqtt-manager-${VERSION}-windows-amd64.exe"
+          mv "build/bin/mqtt-manager-amd64-installer.exe" "build/bin/mqtt-manager-${VERSION}-windows-amd64-installer.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            build/bin/*-windows-amd64.exe
+            build/bin/*-windows-amd64-installer.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # required to create the release and upload assets
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
